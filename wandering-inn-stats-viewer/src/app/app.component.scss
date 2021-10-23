@@ -1,0 +1,20 @@
+mat-drawer-container {
+  height: 100%;
+  width: 100%;
+}
+
+main {
+  display: flex;
+  justify-content: center;
+}
+.menu-button {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+header {
+  display: flex;
+  justify-content: center;
+  background-color: #444;
+}

@@ -1,0 +1,43 @@
+<div class="row">
+  <app-chonker-number-info text="Volumes" [amount]="volumes"></app-chonker-number-info>
+  <app-chonker-number-info text="Chapters" [amount]="chapters"></app-chonker-number-info>
+  <!--  <div class="timespan"><span>{{statistics.WritingVelocity.from | date}}</span> <span>↕</span> <span>{{statistics.WritingVelocity.to | date}}</span></div>-->
+</div>
+
+<div class="row">
+  <app-chonker-number-info text="Characters" [amount]="statistics.Characters"></app-chonker-number-info>
+  <app-chonker-number-info text="Words" [amount]="statistics.Words"></app-chonker-number-info>
+  <app-chonker-number-info text="Pages" [amount]="pageCount"
+                           subText="assuming 3k characters per page"></app-chonker-number-info>
+</div>
+
+<h2>To put this into context</h2>
+
+<div class="row breakout">
+  <app-smart-chart [options]="wordCountVsOthersChartOptions()" [minWidth]="900"></app-smart-chart>
+</div>
+<div class="row">
+  <app-chonker-number-info text="Overall Words per Day" [amount]="statistics.WritingVelocity.words.perDay()"
+                           subText="and this is skewed LOWER by the earlier volumes"></app-chonker-number-info>
+
+  <app-chonker-number-info text="Latest Volume Words per Day" [amount]="this.lastVolume.WritingVelocity.words.perDay()"
+                           subText="Bruh."></app-chonker-number-info>
+</div>
+<h2>Welcome to the Pirateaba Bullettrain</h2>
+<div class="row">
+  <app-smart-chart [options]="wordCountPerVolumeChartOptions()" [minWidth]="900"></app-smart-chart>
+</div>
+<div class="row">
+  <app-smart-chart [options]="totalCharacterMentionsChartOptions()" [minWidth]="900"></app-smart-chart>
+</div>
+
+<div class="row" style="flex-wrap: wrap">
+  <ng-container *ngFor="let volume of statistics.Volumes">
+    <app-volume-character-occurence-radar [volumeStatistic]="volume" [filterErin]="false" [weighted]="false" style="flex-grow: 1; "></app-volume-character-occurence-radar>
+  </ng-container>
+</div>
+
+
+
+
+

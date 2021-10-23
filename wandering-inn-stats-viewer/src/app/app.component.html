@@ -1,0 +1,18 @@
+<mat-drawer-container autosize>
+  <mat-drawer #drawer mode="over">
+    <p>Auto-resizing sidenav</p>
+  </mat-drawer>
+
+  <header>
+    <button class="menu-button" type="button" mat-button (click)="drawer.toggle()">
+      Toggle sidenav
+    </button>
+    <h1>Wandering Inn Statistics</h1>
+  </header>
+
+  <main>
+
+    <router-outlet></router-outlet>
+  </main>
+
+</mat-drawer-container>

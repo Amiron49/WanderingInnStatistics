@@ -1,0 +1,15 @@
+:host {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.timespan {
+  font-size: 2em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-evenly;
+  padding-bottom: 0.8em;
+}

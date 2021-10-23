@@ -1,0 +1,52 @@
+/* You can add global styles to this file, and also import other style files */
+
+
+:root {
+  --breakout: 920px;
+}
+
+html, body { height: 100%; }
+body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+* {
+  line-height: 1;
+}
+
+.row {
+  display: flex;
+  justify-content: space-evenly;
+  width: 100%;
+  flex-direction: column;
+  margin: 0 0 2em;
+
+  @media (min-width: 500px) {
+    flex-direction: row;
+
+  }
+
+  &.breakout {
+    padding: 0;
+    overflow-x: auto;
+    display: block;
+  }
+
+  .breakout {
+    width: var(--breakout);
+
+    @media (min-width: 800px) {
+      width: 100%;
+    }
+  }
+
+}
+
+
+@import "~billboard.js/dist/theme/graph.css";
+
+.bb {
+  color: black;
+  background-color: #242424;
+
+  text {
+    fill: #fff;
+  }
+}
