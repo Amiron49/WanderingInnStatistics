@@ -1,4 +1,13 @@
-import {AfterViewInit, Component, ElementRef, HostListener, Input, ViewChild} from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  HostListener,
+  Input,
+  OnChanges,
+  SimpleChanges,
+  ViewChild
+} from '@angular/core';
 import bb, {Chart, ChartOptions} from "billboard.js";
 
 @Component({
@@ -6,8 +15,7 @@ import bb, {Chart, ChartOptions} from "billboard.js";
   templateUrl: './smart-chart.component.html',
   styleUrls: ['./smart-chart.component.scss']
 })
-export class SmartChartComponent implements AfterViewInit {
-
+export class SmartChartComponent implements AfterViewInit, OnChanges {
   @Input()
   public minWidth?: number | null = null;
 
@@ -36,10 +44,27 @@ export class SmartChartComponent implements AfterViewInit {
     }
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    let optionsChange = changes["options"];
+    if (optionsChange && !optionsChange.isFirstChange() && optionsChange.currentValue && optionsChange.currentValue != optionsChange.previousValue)
+    {
+      this.reInit();
+    }
+  }
+
   constructor(private hostElementRef: ElementRef) {
   }
 
   ngAfterViewInit() {
+    this.init();
+  }
+
+  private reInit(){
+    this.chart?.destroy();
+    this.init();
+  }
+
+  private init() {
     let hostNativeElement = <HTMLDivElement>this.hostElementRef.nativeElement;
     let targetElement = <HTMLDivElement>this.chartTarget.nativeElement;
 

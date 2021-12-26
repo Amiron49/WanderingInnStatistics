@@ -7,14 +7,15 @@
 <div class="row">
   <app-chonker-number-info text="Characters" [amount]="statistics.Characters"></app-chonker-number-info>
   <app-chonker-number-info text="Words" [amount]="statistics.Words"></app-chonker-number-info>
-  <app-chonker-number-info text="Pages" [amount]="pageCount"
+  <app-chonker-number-info text="Pages" [amount]="standardStatistics.pageCount"
                            subText="assuming 3k characters per page"></app-chonker-number-info>
 </div>
 
 <h2>To put this into context</h2>
 
 <div class="row breakout">
-  <app-smart-chart [options]="wordCountVsOthersChartOptions()" [minWidth]="900"></app-smart-chart>
+  <app-smart-chart *ngIf="wordCountVsOthersChartOptionsCached" [options]="wordCountVsOthersChartOptionsCached"
+                   [minWidth]="900"></app-smart-chart>
 </div>
 <div class="row">
   <app-chonker-number-info text="Overall Words per Day" [amount]="statistics.WritingVelocity.words.perDay()"
@@ -25,19 +26,47 @@
 </div>
 <h2>Welcome to the Pirateaba Bullettrain</h2>
 <div class="row">
-  <app-smart-chart [options]="wordCountPerVolumeChartOptions()" [minWidth]="900"></app-smart-chart>
+  <app-smart-chart *ngIf="wordCountPerVolumeChartOptionsCached" [options]="wordCountPerVolumeChartOptionsCached"
+                   [minWidth]="900"></app-smart-chart>
 </div>
 <div class="row">
-  <app-smart-chart [options]="totalCharacterMentionsChartOptions()" [minWidth]="900"></app-smart-chart>
+  <app-smart-chart [options]="standardStatistics.totalCharacterMentionsChartOptions"
+                   [minWidth]="900"></app-smart-chart>
 </div>
 
-<div class="row" style="flex-wrap: wrap">
-  <ng-container *ngFor="let volume of statistics.Volumes">
-    <app-volume-character-occurence-radar [volumeStatistic]="volume" [filterErin]="false" [weighted]="false" style="flex-grow: 1; "></app-volume-character-occurence-radar>
-  </ng-container>
+<mat-checkbox #filterErin (change)="handleErinFilterChange($event)">Remove Erin <span *ngIf="filterErin.checked">(You Monster)</span></mat-checkbox>
+<mat-checkbox #weightedMode (change)="handleWeightedChange($event)">Weighted View</mat-checkbox>
+
+<div #shittyTabGroupContainer class="row" style="flex-wrap: wrap">
+  <mat-tab-group #shittyTabGroup style="width: 100%" mat-align-tabs="center">
+    <mat-tab class="row">
+      <div class="row" style="flex-wrap: wrap">
+        <ng-container *ngFor="let volume of statistics.Volumes">
+          <app-volume-character-occurence-radar [volumeStatistic]="volume" [filterErin]="false" [weighted]="false"
+                                                style="flex-grow: 1; "></app-volume-character-occurence-radar>
+        </ng-container>
+      </div>
+    </mat-tab>
+    <mat-tab class="row" >
+      <div class="row" style="flex-wrap: wrap">
+        <ng-container *ngFor="let volume of statistics.Volumes">
+          <app-volume-character-occurence-radar [volumeStatistic]="volume" [filterErin]="true" [weighted]="false"
+                                                style="flex-grow: 1; "></app-volume-character-occurence-radar>
+        </ng-container>
+      </div>
+    </mat-tab>
+    <mat-tab class="row" >
+      <div class="row" style="flex-wrap: wrap">
+        <ng-container *ngFor="let volume of statistics.Volumes">
+          <app-volume-character-occurence-radar [volumeStatistic]="volume" [filterErin]="filterErin.checked"
+                                                [weighted]="true"
+                                                style="flex-grow: 1; "></app-volume-character-occurence-radar>
+        </ng-container>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+
 </div>
 
-
-
-
+<app-standard-statistics-view [standardStatistics]="standardStatistics"></app-standard-statistics-view>
 

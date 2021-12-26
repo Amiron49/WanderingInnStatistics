@@ -1,1 +1,1 @@
-<app-smart-chart [options]="createVolumeCharacterMentionsChartOptions()"></app-smart-chart>
+<app-smart-chart *ngIf="chartOptions" [options]="chartOptions"></app-smart-chart>

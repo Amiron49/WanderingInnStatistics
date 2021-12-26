@@ -1,15 +1,25 @@
-import {Component, Input, OnChanges, OnInit, SimpleChange, SimpleChanges, ViewChild} from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  Input,
+  OnChanges,
+  OnInit,
+  SimpleChange,
+  SimpleChanges,
+  ViewChild
+} from '@angular/core';
 import {VolumeStatistic} from "../../wandering-inn-statistic";
 import {ChartOptions, radar} from "billboard.js";
 import {Helpers} from "../main-statistics.component";
 import {SmartChartComponent} from "../smart-chart/smart-chart.component";
+import {NumberFormatStyle} from "@angular/common";
 
 @Component({
   selector: 'app-volume-character-occurence-radar',
   templateUrl: './volume-character-occurence-radar.component.html',
   styleUrls: ['./volume-character-occurence-radar.component.scss']
 })
-export class VolumeCharacterOccurenceRadarComponent implements OnInit, OnChanges {
+export class VolumeCharacterOccurenceRadarComponent implements OnInit, OnChanges, AfterViewInit {
 
   @Input()
   volumeStatistic?: VolumeStatistic;
@@ -17,6 +27,8 @@ export class VolumeCharacterOccurenceRadarComponent implements OnInit, OnChanges
   filterErin: boolean = false;
   @Input()
   weighted: boolean = false;
+
+  chartOptions?: ChartOptions;
 
   @ViewChild(SmartChartComponent)
   smartChart!: SmartChartComponent;
@@ -27,53 +39,62 @@ export class VolumeCharacterOccurenceRadarComponent implements OnInit, OnChanges
   ngOnInit(): void {
   }
 
+  ngAfterViewInit() {
+    this.chartOptions = this.createVolumeCharacterMentionsChartOptions();
+  }
+
   ngOnChanges(changes: SimpleChanges) {
     let erinChange = changes["filterErin"];
     let weightChange = changes["weighted"];
 
     if (Helpers.isChange(erinChange) || Helpers.isChange(weightChange)) {
-      this.recalculate(erinChange.currentValue, weightChange.currentValue);
+      this.recalculate(erinChange?.currentValue ?? this.filterErin, weightChange?.currentValue ?? this.weighted);
     }
   }
 
   recalculate(filterErin: boolean, weighted: boolean) {
     let data = this.computeData(this.volumeStatistic!, filterErin, weighted);
     this.smartChart.chart?.load({
-      data: <any>data
+      columns: <any>data
     });
 
-    let biggestValue = Math.max(...<number[]>data[1].splice(0, 1));
+    let biggestValue = Math.max(...<number[]>data[1].slice(1, data[1].length - 1));
 
-    if (weighted && this.smartChart.chart!.axis.max() > 2) {
-      this.smartChart.chart!.axis.max(1);
-    } else if (!weighted && this.smartChart.chart!.axis.max() < 2) {
-      this.smartChart.chart!.axis.max(biggestValue);
+    if (weighted && this.smartChart.chart!.config("radar.axis.max") > 2) {
+      this.smartChart.chart!.config("radar.axis.max", 1, true);
+    } else if (!weighted && this.smartChart.chart!.config("radar.axis.max") < 2) {
+      this.smartChart.chart!.config("radar.axis.max", biggestValue, true);
     }
   }
 
   createVolumeCharacterMentionsChartOptions(): ChartOptions {
     let data = this.computeData(this.volumeStatistic!, this.filterErin, this.weighted)
 
-    let biggestValue = Math.max(...<number[]>data[1].splice(0, 1));
+    let biggestValue = Math.max(...<number[]>data[1].slice(1, data[1].length - 1));
 
     return {
+      size: {
+        height: 320,
+        width: 550
+      },
       data: {
         x: "x",
         columns: <any>data,
         type: radar(),
         labels: {
           colors: "white",
-          centered: true
+          centered: true,
+          format: v => {
+            let formatter = new Intl.NumberFormat("en-US", {
+              maximumFractionDigits: 2
+            });
+            return `${formatter.format(v)}`
+          }
         }
       },
       radar: {
         axis: {
           max: biggestValue,
-          text: {
-            // position: {
-            //   x: -50
-            // }
-          },
           line: {
             show: true
           }
@@ -87,6 +108,9 @@ export class VolumeCharacterOccurenceRadarComponent implements OnInit, OnChanges
       },
       legend: {
         show: false
+      },
+      resize: {
+        auto: true
       }
     };
   }
@@ -109,7 +133,7 @@ export class VolumeCharacterOccurenceRadarComponent implements OnInit, OnChanges
     }
 
     return [
-      ["x", ...topCharacters.map(x => x.key)],
+      ["x", ...topCharacters.map(x => x.key.split(" ")[0])],
       ["Mentions", ...topData]
     ]
   }

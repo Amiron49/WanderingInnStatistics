@@ -30,11 +30,8 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
   }
 
   .breakout {
-    width: var(--breakout);
-
-    @media (min-width: 800px) {
-      width: 100%;
-    }
+    min-width: var(--breakout);
+    width: 100%;
   }
 
 }
@@ -49,4 +46,12 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
   text {
     fill: #fff;
   }
+
+  svg {
+    margin: auto;
+  }
+}
+
+mat-tab-group > .mat-tab-header {
+  display: none;
 }

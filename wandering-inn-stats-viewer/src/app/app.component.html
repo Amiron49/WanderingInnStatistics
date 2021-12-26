@@ -1,6 +1,6 @@
 <mat-drawer-container autosize>
   <mat-drawer #drawer mode="over">
-    <p>Auto-resizing sidenav</p>
+    <app-navigation (onClickNavigationItem)="drawer.close()"></app-navigation>
   </mat-drawer>
 
   <header>

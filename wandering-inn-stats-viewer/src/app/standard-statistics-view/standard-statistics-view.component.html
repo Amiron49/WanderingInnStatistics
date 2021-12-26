@@ -1,0 +1,66 @@
+<ng-container *ngIf="standardStatistics != null">
+
+  <h2>Classes</h2>
+
+  <div class="row">
+    <app-chonker-number-info text="Classes" [amount]="standardStatistics.uniqueClasses"></app-chonker-number-info>
+    <app-chonker-number-info [text]="standardStatistics.mostMentionedClass.key" [amount]="standardStatistics.mostMentionedClass.value" subText="Mentions"></app-chonker-number-info>
+    <app-chonker-number-info text="One-of Classes" [amount]="standardStatistics.classesOnlyUsedOnce"
+                             subText="Classes that were only mentioned once"></app-chonker-number-info>
+  </div>
+
+  <div class="row">
+    <app-smart-chart *ngIf="standardStatistics" [options]="standardStatistics.topClassesChartOptions"
+                     [minWidth]="900"></app-smart-chart>
+  </div>
+
+  <h2>Skills</h2>
+
+  <div class="row">
+    <app-chonker-number-info text="Skills" [amount]="standardStatistics.uniqueSkills"></app-chonker-number-info>
+    <app-chonker-number-info [text]="standardStatistics.mostUsedSkill.key" [amount]="standardStatistics.mostUsedSkill.value" subText="Mentions"></app-chonker-number-info>
+    <app-chonker-number-info text="One-of Skills" [amount]="standardStatistics.amountOfSkillsOnlyUsedOnce"
+                             subText="Skills that were only mentioned once"></app-chonker-number-info>
+  </div>
+
+  <div class="row">
+    <app-smart-chart *ngIf="standardStatistics" [options]="standardStatistics.topSkillsChartOptions"
+                     [minWidth]="900"></app-smart-chart>
+  </div>
+
+  <h2>Spells</h2>
+
+  <div class="row">
+    <app-chonker-number-info text="Spells" [amount]="standardStatistics.uniqueSpells"></app-chonker-number-info>
+    <app-chonker-number-info [text]="standardStatistics.mostUsedSpell.key" [amount]="standardStatistics.mostUsedSpell.value" subText="Mentions"></app-chonker-number-info>
+    <app-chonker-number-info text="One-of Spells" [amount]="standardStatistics.amountOfSkillsOnlyUsedOnce"
+                             subText="Spells that were only mentioned once"></app-chonker-number-info>
+  </div>
+
+  <div class="row">
+    <app-smart-chart *ngIf="standardStatistics" [options]="standardStatistics.topSpellsChartOptions"
+                     [minWidth]="900"></app-smart-chart>
+  </div>
+
+  <div class="row">
+    <app-smart-chart *ngIf="standardStatistics" [options]="standardStatistics.topUnknownsChartOptions"
+                     [minWidth]="900"></app-smart-chart>
+  </div>
+
+  <h2>Comments Statistics</h2>
+
+  <ng-container *ngIf="standardStatistics.mostCommentedOnChapter && standardStatistics.leastCommentedOnChapter && standardStatistics.topMostCommentedOnChapterChartOptions">
+    <div class="row">
+      <app-chonker-number-info [text]="standardStatistics.mostCommentedOnChapter.Name" [amount]="standardStatistics.mostCommentedOnChapter.Comments"></app-chonker-number-info>
+      <app-chonker-number-info [text]="standardStatistics.leastCommentedOnChapter.Name" [amount]="standardStatistics.leastCommentedOnChapter.Comments"></app-chonker-number-info>
+    </div>
+
+    <div class="row">
+      <app-smart-chart *ngIf="standardStatistics" [options]="standardStatistics.topMostCommentedOnChapterChartOptions"
+                       [minWidth]="900"></app-smart-chart>
+    </div>
+  </ng-container>
+
+
+</ng-container>
+

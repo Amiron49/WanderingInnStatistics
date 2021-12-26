@@ -4,6 +4,11 @@
   align-items: center;
   margin: 1em;
   text-align: center;
+  width: 100%;
+
+  @media (min-width: 500px ) {
+    width: 10em;
+  }
 }
 
 .number {
@@ -14,6 +19,7 @@
   font-size: 2em;
   margin-top: 0.5em;
   margin-bottom: 0.3em;
+  width: 9em;
 }
 
 .sub-text {

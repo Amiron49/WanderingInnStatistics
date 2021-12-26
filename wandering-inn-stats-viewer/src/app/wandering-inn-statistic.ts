@@ -1,6 +1,7 @@
 ﻿export abstract class AbstractWanderingInnStatistic {
   Words: number = 0;
   Characters: number = 0;
+  Classes: { [key: string]: number } = {};
   Skills: { [key: string]: number } = {};
   CancelledBrackets: { [key: string]: number } = {};
   CharacterMentions: { [key: string]: number } = {};

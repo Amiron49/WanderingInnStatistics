@@ -1,0 +1,7 @@
+<mat-nav-list>
+  <mat-list-item [routerLink]="['/']">Main</mat-list-item>
+  <div mat-subheader>Volumes</div>
+  <mat-list-item [routerLink]="['volume', volume]" (click)="this.onClickNavigationItem.emit()" *ngFor="let volume of volumes" role="list">
+    <a [routerLink]="['volume', volume]" role="listitem">{{volume}}</a>
+  </mat-list-item>
+</mat-nav-list>
