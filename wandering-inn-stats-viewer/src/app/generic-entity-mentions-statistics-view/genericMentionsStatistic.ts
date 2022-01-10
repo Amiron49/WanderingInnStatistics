@@ -22,7 +22,7 @@ export class GenericMentionsStatistic {
     this.locator = locator;
 
     this.mentions = this.locator(wanderingInnStatistics)[key];
-    this.allChaptersContaining = wanderingInnStatistics.Volumes.flatMap(volume => volume.Chapters.filter(chapter => this.locator(chapter))).map(x => x.Chapter);
+    this.allChaptersContaining = wanderingInnStatistics.Volumes.flatMap(volume => volume.Chapters.filter(chapter => this.locator(chapter) && this.locator(chapter)[key] > 0)).map(x => x.Chapter);
     this.firstOccurence = this.allChaptersContaining[0];
     this.volumeMentionChart = this.generateVolumeMentionChartOptions(wanderingInnStatistics)
   }

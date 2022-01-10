@@ -1,7 +1,20 @@
 <mat-nav-list>
   <mat-list-item [routerLink]="['/']">Main</mat-list-item>
   <div mat-subheader>Volumes</div>
-  <mat-list-item [routerLink]="['volume', volume]" (click)="this.onClickNavigationItem.emit()" *ngFor="let volume of volumes" role="list">
-    <a [routerLink]="['volume', volume]" role="listitem">{{volume}}</a>
+  <mat-list-item [routerLink]="['/volume', volume]" (click)="this.onClickNavigationItem.emit()" *ngFor="let volume of volumes" role="list">
+    <a [routerLink]="['/volume', volume]" role="listitem">{{volume}}</a>
+  </mat-list-item>
+  <div mat-subheader>Misc</div>
+  <mat-list-item [routerLink]="['/character']"  (click)="this.onClickNavigationItem.emit()">
+    <a [routerLink]="['/character']" role="listitem">Characters</a>
+  </mat-list-item>
+  <mat-list-item [routerLink]="['/class']"  (click)="this.onClickNavigationItem.emit()">
+    <a [routerLink]="['/class']" role="listitem">Classes</a>
+  </mat-list-item>
+  <mat-list-item [routerLink]="['/skill']"  (click)="this.onClickNavigationItem.emit()">
+    <a [routerLink]="['/skill']" role="listitem">Skills</a>
+  </mat-list-item>
+  <mat-list-item [routerLink]="['/unknown']"  (click)="this.onClickNavigationItem.emit()">
+    <a [routerLink]="['/unknown']" role="listitem">Unknown Brackets</a>
   </mat-list-item>
 </mat-nav-list>

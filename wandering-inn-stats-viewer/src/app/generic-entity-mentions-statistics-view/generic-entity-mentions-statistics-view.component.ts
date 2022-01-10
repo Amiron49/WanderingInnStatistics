@@ -12,7 +12,7 @@ import {AbstractWanderingInnStatistic} from "../wandering-inn-statistic";
 export class GenericEntityMentionsStatisticsViewComponent implements OnInit {
   @Input()
   genericEntityStatistic?: GenericMentionsStatistic
-  shownColumns = ["Volume", "Chapter", "Link"];
+  shownColumns = ["Volume", "Chapter"];
 
   constructor(
     private route: ActivatedRoute,
@@ -31,7 +31,7 @@ export class GenericEntityMentionsStatisticsViewComponent implements OnInit {
     })
   }
 
-  private static createLocator(entityType: EntityType): (statistic: AbstractWanderingInnStatistic) => { [key: string]: number } {
+  public static createLocator(entityType: EntityType): (statistic: AbstractWanderingInnStatistic) => { [key: string]: number } {
     switch (entityType) {
       case "class":
         return statistic => statistic.Classes
@@ -39,6 +39,8 @@ export class GenericEntityMentionsStatisticsViewComponent implements OnInit {
         return statistic => statistic.Skills
       case "character":
         return statistic => statistic.CharacterMentions
+      case "unknown":
+        return statistic => statistic.UnknownBrackets
       default:
         throw new Error(`type ${entityType} is not a known EntityType`)
     }
@@ -46,6 +48,6 @@ export class GenericEntityMentionsStatisticsViewComponent implements OnInit {
 
 }
 
-export type EntityType = "class" | "skill" | "character"
+export type EntityType = "class" | "skill" | "character" | "unknown"
 
 

@@ -16,11 +16,7 @@
     </ng-container>
     <ng-container matColumnDef="Chapter">
       <th mat-header-cell *matHeaderCellDef>Chapter</th>
-      <td mat-cell *cdkCellDef="let element"> {{element.Chapter}} </td>
-    </ng-container>
-    <ng-container matColumnDef="Link">
-      <th mat-header-cell *matHeaderCellDef>Link</th>
-      <td mat-cell *cdkCellDef="let element"> <a [href]="element.Url" target="_blank">(open chapter)</a>  </td>
+      <td mat-cell *cdkCellDef="let element"> <a [href]="element.Url" target="_blank">{{element.Name}}</a>  </td>
     </ng-container>
     <tr mat-header-row *matHeaderRowDef="shownColumns"></tr>
     <tr mat-row *matRowDef="let row; columns: shownColumns"></tr>

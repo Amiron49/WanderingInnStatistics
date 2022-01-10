@@ -24,6 +24,8 @@ import { GenericEntityMentionsStatisticsViewComponent } from './generic-entity-m
 import {MatExpansionModule} from "@angular/material/expansion";
 import {MatTableModule} from "@angular/material/table";
 import {CdkTableModule} from "@angular/cdk/table";
+import { GenericEntityListComponent } from './generic-entity-list/generic-entity-list.component';
+import {MatSortModule} from "@angular/material/sort";
 
 @NgModule({
   declarations: [
@@ -36,21 +38,23 @@ import {CdkTableModule} from "@angular/cdk/table";
     StandardStatisticsViewComponent,
     VolumeStatisticsComponent,
     AppNavigationComponent,
-    GenericEntityMentionsStatisticsViewComponent
+    GenericEntityMentionsStatisticsViewComponent,
+    GenericEntityListComponent
   ],
-    imports: [
-        BrowserModule,
-        AppRoutingModule,
-        BrowserAnimationsModule,
-        MatSidenavModule,
-        MatButtonModule,
-        MatCheckboxModule,
-        MatTabsModule,
-        MatListModule,
-        MatExpansionModule,
-        MatTableModule,
-        CdkTableModule
-    ],
+  imports: [
+    BrowserModule,
+    AppRoutingModule,
+    BrowserAnimationsModule,
+    MatSidenavModule,
+    MatButtonModule,
+    MatCheckboxModule,
+    MatTabsModule,
+    MatListModule,
+    MatExpansionModule,
+    MatTableModule,
+    CdkTableModule,
+    MatSortModule
+  ],
   providers: [],
   bootstrap: [AppComponent]
 })

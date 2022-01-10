@@ -55,3 +55,17 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 mat-tab-group > .mat-tab-header {
   display: none;
 }
+
+
+a:not(.mat-button-base) {
+  color: #ce93d8;
+}
+
+table.mat-table {
+  width: 100%;
+  margin: auto;
+  @media (min-width: 800px) {
+    width: 800px;
+  }
+}
+
