@@ -3,18 +3,32 @@ mat-drawer-container {
   width: 100%;
 }
 
+
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
 main {
   display: flex;
   justify-content: center;
-}
-.menu-button {
-  position: absolute;
-  top: 0;
-  left: 0;
+  flex-grow: 1;
 }
 
 header {
   display: flex;
   justify-content: center;
   background-color: #444;
+  h1 {
+    margin: 0.5em;
+    flex-grow: 1;
+    text-align: center;
+  }
 }
+
+footer {
+  text-align: center;
+}
+

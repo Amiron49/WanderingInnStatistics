@@ -1,0 +1,21 @@
+:host {
+  display: grid;
+  grid-template-rows: auto;
+  grid-auto-flow: dense;
+  grid-template-areas:
+    ". . ."
+    ". message ."
+    ". . .";
+}
+
+.message {
+  grid-area: message;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.giphy-embed {
+  place-self: stretch;
+}

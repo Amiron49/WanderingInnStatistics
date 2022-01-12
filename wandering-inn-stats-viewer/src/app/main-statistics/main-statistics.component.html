@@ -1,3 +1,4 @@
+<h5>Warning: This may contain spoilers for Volume 8. Also character mention statistics can be REALLY REALLY innacurate till I fix the logic</h5>
 <div class="row">
   <app-chonker-number-info text="Volumes" [amount]="volumes"></app-chonker-number-info>
   <app-chonker-number-info text="Chapters" [amount]="chapters"></app-chonker-number-info>
@@ -34,6 +35,8 @@
                    [minWidth]="900"></app-smart-chart>
 </div>
 
+<h2>Top 5 Characters, Per Volume</h2>
+
 <mat-checkbox #filterErin (change)="handleErinFilterChange($event)">Remove Erin <span *ngIf="filterErin.checked">(You Monster)</span></mat-checkbox>
 <mat-checkbox #weightedMode (change)="handleWeightedChange($event)">Weighted View</mat-checkbox>
 
@@ -41,7 +44,7 @@
   <mat-tab-group #shittyTabGroup style="width: 100%" mat-align-tabs="center">
     <mat-tab class="row">
       <div class="row" style="flex-wrap: wrap">
-        <ng-container *ngFor="let volume of statistics.Volumes">
+        <ng-container  *ngFor="let volume of statistics.Volumes">
           <app-volume-character-occurence-radar [volumeStatistic]="volume" [filterErin]="false" [weighted]="false"
                                                 style="flex-grow: 1; "></app-volume-character-occurence-radar>
         </ng-container>

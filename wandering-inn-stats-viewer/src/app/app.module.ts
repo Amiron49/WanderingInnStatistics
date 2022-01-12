@@ -26,6 +26,10 @@ import {MatTableModule} from "@angular/material/table";
 import {CdkTableModule} from "@angular/cdk/table";
 import { GenericEntityListComponent } from './generic-entity-list/generic-entity-list.component';
 import {MatSortModule} from "@angular/material/sort";
+import { AboutComponent } from './about/about.component';
+import { ImpressumComponent } from './impressum/impressum.component';
+import {MatIconModule} from "@angular/material/icon";
+import { HarshTruthComponent } from './harsh-truth/harsh-truth.component';
 
 @NgModule({
   declarations: [
@@ -39,7 +43,10 @@ import {MatSortModule} from "@angular/material/sort";
     VolumeStatisticsComponent,
     AppNavigationComponent,
     GenericEntityMentionsStatisticsViewComponent,
-    GenericEntityListComponent
+    GenericEntityListComponent,
+    AboutComponent,
+    ImpressumComponent,
+    HarshTruthComponent
   ],
   imports: [
     BrowserModule,
@@ -53,7 +60,8 @@ import {MatSortModule} from "@angular/material/sort";
     MatExpansionModule,
     MatTableModule,
     CdkTableModule,
-    MatSortModule
+    MatSortModule,
+    MatIconModule
   ],
   providers: [],
   bootstrap: [AppComponent]

@@ -34,7 +34,7 @@ namespace WanderingInnStats.Cli
 
 
             var chapters = await ScrappingHelper.ScrapeBlog(rawChaptersCacheFile);
-            chapters = chapters.Where(x => x.Name != "Glossary" && !x.Volume.Contains("8") && !x.Volume.Contains("7")).ToList();
+            chapters = chapters.Where(x => x.Name != "Glossary").ToList();
 
             var characters = await ScrappingHelper.ScrapeWikiForCharacters(rawCharactersCacheFile);
             characters = characters.Where(x => !x.Name.Contains("Chapter 8.17 H")).ToList();
@@ -99,7 +99,7 @@ namespace WanderingInnStats.Cli
             var dirty = ChapterFixing.FindDirtyChapters(chapters);
             Console.WriteLine($"Found {dirty.Count} dirty chapters");
             ChapterFixing.Fixup(chapters);
-            dirty = ChapterFixing.FindDirtyChapters(chapters);
+            dirty = ChapterFixing.FindDirtyChapters(chapters).Where(x => x.Volume != "Volume 8\n").ToList();
             Console.WriteLine($"{dirty.Count} dirty chapters remaining");
             if (dirty.Count > 0)
                 throw new Exception("Still have dirty chapters");

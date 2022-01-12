@@ -127,7 +127,6 @@ export class StandardStatisticInterpretation {
     {
       let volumes = (<WanderingInnStatistic>statistics).Volumes;
       let chapterInfos = volumes.flatMap(x => x.Chapters.flatMap(chapter => chapter.Chapter));
-      console.log(chapterInfos);
       this.createChapterInfoBasedStatistics(chapterInfos);
     } else if ((<VolumeStatistic>statistics).Chapters) {
       this.createChapterInfoBasedStatistics((<VolumeStatistic>statistics).Chapters.flatMap(chapter => chapter.Chapter));

@@ -124,10 +124,13 @@ namespace WanderingInnStats.Parsing
 
 				var orderByDescending = overlapList.OrderByDescending(x => x.individualMatch.Length).ToList();
 
-				if (orderByDescending.First().individualMatch.Length == orderByDescending.Skip(1).First().individualMatch.Length)
+                var first = orderByDescending.First();
+                var second = orderByDescending.Skip(1).First();
+                
+                if (first.individualMatch.Length == second.individualMatch.Length && first.individualMatch.Value.Replace(" ", "").Length == second.individualMatch.Value.Replace(" ", "").Length)
 					throw new Exception("Can't decide");
 				
-				var mostSignificant = orderByDescending.First();
+				var mostSignificant = first;
 
 				yield return mostSignificant;
 			}

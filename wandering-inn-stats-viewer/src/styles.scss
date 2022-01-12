@@ -67,5 +67,10 @@ table.mat-table {
   @media (min-width: 800px) {
     width: 800px;
   }
+  text-align: initial;
+}
+
+mat-checkbox {
+  margin-bottom: 1em;
 }
 

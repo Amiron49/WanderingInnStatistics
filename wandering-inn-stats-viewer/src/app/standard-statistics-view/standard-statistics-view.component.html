@@ -42,11 +42,6 @@
                      [minWidth]="900"></app-smart-chart>
   </div>
 
-  <div class="row">
-    <app-smart-chart *ngIf="standardStatistics" [options]="standardStatistics.topUnknownsChartOptions"
-                     [minWidth]="900"></app-smart-chart>
-  </div>
-
   <h2>Comments Statistics</h2>
 
   <ng-container *ngIf="standardStatistics.mostCommentedOnChapter && standardStatistics.leastCommentedOnChapter && standardStatistics.topMostCommentedOnChapterChartOptions">
@@ -61,6 +56,11 @@
     </div>
   </ng-container>
 
+  <h2>Unknown brackets</h2>
+  <div class="row">
+    <app-smart-chart *ngIf="standardStatistics" [options]="standardStatistics.topUnknownsChartOptions"
+                     [minWidth]="900"></app-smart-chart>
+  </div>
 
 </ng-container>
 
