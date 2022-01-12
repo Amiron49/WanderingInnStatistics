@@ -50,13 +50,16 @@ namespace WanderingInnStats.Parsing
 
 	public class SimpleWordStats : ITextParser
 	{
-		public void Parse(string content, WanderingInnStatistics statistics, WanderingInnDefinitions wanderingInnDefinitions)
-		{
-			var words = content.Split(new[] {' ', '\n', '\r', '"'}, StringSplitOptions.RemoveEmptyEntries);
-			statistics.Words = words.Length;
+        private readonly Regex _wordsRegex = new(@"\w+");
+        private readonly Regex _characterRegex = new(@"\S");
 
-			var characters = words.Sum(x => x.Length);
-			statistics.Characters = characters;
+        public void Parse(string content, WanderingInnStatistics statistics, WanderingInnDefinitions wanderingInnDefinitions)
+		{
+            var wordMatches = _wordsRegex.Matches(content);
+			statistics.Words = wordMatches.Count;
+
+			var characterMatches = _characterRegex.Matches(content);
+			statistics.Characters = characterMatches.Count;
 		}
 	}
 
