@@ -17,10 +17,14 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
   width: 100%;
   flex-direction: column;
   margin: 0 0 2em;
+  overflow-x: hidden;
 
   @media (min-width: 500px) {
     flex-direction: row;
+  }
 
+  .breakout-light {
+    overflow-x: auto;
   }
 
   &.breakout {
@@ -74,3 +78,7 @@ mat-checkbox {
   margin-bottom: 1em;
 }
 
+app-root .mat-drawer-content {
+  display: flex;
+  flex-direction: column;
+}

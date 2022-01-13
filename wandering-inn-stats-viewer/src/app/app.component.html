@@ -2,24 +2,21 @@
   <mat-drawer #drawer mode="over">
     <app-navigation (onClickNavigationItem)="drawer.close()"></app-navigation>
   </mat-drawer>
-  <div class="page">
-    <header>
-      <button class="menu-button" type="button" mat-button (click)="drawer.toggle()">
-        <mat-icon>menu</mat-icon>
-      </button>
-      <h1>Wandering Inn Statistics</h1>
-    </header>
-
-    <main>
-      <router-outlet></router-outlet>
-    </main>
-
-    <footer>
-      <p>This is a Fanmade site. Copyright for all text
-        and data on this page goes to <b>The Wandering Inn</b> by <b>pirateaba</b></p>
-      <p>Please support the original by reading it on the <a href="https://wanderinginn.com/" target="_blank">Official
-        Blog</a>
-        and/or throwing more money at the author on <a href="https://www.patreon.com/user?u=4240617" target="_blank">Patreon</a></p>
-    </footer>
-  </div>
+  <header>
+    <button class="menu-button" type="button" mat-button (click)="drawer.toggle()">
+      <mat-icon>menu</mat-icon>
+    </button>
+    <h1>Wandering Inn Statistics</h1>
+  </header>
+  <main>
+    <router-outlet></router-outlet>
+  </main>
+  <footer>
+    <p>This is a Fanmade site. Copyright for all text
+      and data on this page goes to <b>The Wandering Inn</b> by <b>pirateaba</b></p>
+    <p>Please support the original by reading it on the <a href="https://wanderinginn.com/" target="_blank">Official
+      Blog</a>
+      and/or throwing more money at the author on <a href="https://www.patreon.com/user?u=4240617" target="_blank">Patreon</a>
+    </p>
+  </footer>
 </mat-drawer-container>

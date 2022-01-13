@@ -43,7 +43,7 @@
 <div #shittyTabGroupContainer class="row" style="flex-wrap: wrap">
   <mat-tab-group #shittyTabGroup style="width: 100%" mat-align-tabs="center">
     <mat-tab class="row">
-      <div class="row" style="flex-wrap: wrap">
+      <div class="row breakout-light" style="flex-wrap: wrap">
         <ng-container  *ngFor="let volume of statistics.Volumes">
           <app-volume-character-occurence-radar [volumeStatistic]="volume" [filterErin]="false" [weighted]="false"
                                                 style="flex-grow: 1; "></app-volume-character-occurence-radar>
@@ -51,7 +51,7 @@
       </div>
     </mat-tab>
     <mat-tab class="row" >
-      <div class="row" style="flex-wrap: wrap">
+      <div class="row breakout-light" style="flex-wrap: wrap">
         <ng-container *ngFor="let volume of statistics.Volumes">
           <app-volume-character-occurence-radar [volumeStatistic]="volume" [filterErin]="true" [weighted]="false"
                                                 style="flex-grow: 1; "></app-volume-character-occurence-radar>
@@ -59,7 +59,7 @@
       </div>
     </mat-tab>
     <mat-tab class="row" >
-      <div class="row" style="flex-wrap: wrap">
+      <div class="row breakout-light" style="flex-wrap: wrap">
         <ng-container *ngFor="let volume of statistics.Volumes">
           <app-volume-character-occurence-radar [volumeStatistic]="volume" [filterErin]="filterErin.checked"
                                                 [weighted]="true"
