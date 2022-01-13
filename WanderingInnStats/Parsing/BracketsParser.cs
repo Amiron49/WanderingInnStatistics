@@ -50,7 +50,7 @@ namespace WanderingInnStats.Parsing
 
 	public class SimpleWordStats : ITextParser
 	{
-        private readonly Regex _wordsRegex = new(@"\w+");
+        private readonly Regex _wordsRegex = new(@"(?:\w+-?)+");
         private readonly Regex _characterRegex = new(@"\S");
 
         public void Parse(string content, WanderingInnStatistics statistics, WanderingInnDefinitions wanderingInnDefinitions)
