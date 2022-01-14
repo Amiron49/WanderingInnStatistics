@@ -5,7 +5,7 @@
   <div class="row">
     <app-chonker-number-info text="Classes" [amount]="standardStatistics.uniqueClasses"></app-chonker-number-info>
     <app-chonker-number-info [text]="standardStatistics.mostMentionedClass.key" [amount]="standardStatistics.mostMentionedClass.value" subText="Mentions"></app-chonker-number-info>
-    <app-chonker-number-info text="One-of Classes" [amount]="standardStatistics.classesOnlyUsedOnce"
+    <app-chonker-number-info text="One-off Classes" [amount]="standardStatistics.classesOnlyUsedOnce"
                              subText="Classes that were only mentioned once"></app-chonker-number-info>
   </div>
 
@@ -19,7 +19,7 @@
   <div class="row">
     <app-chonker-number-info text="Skills" [amount]="standardStatistics.uniqueSkills"></app-chonker-number-info>
     <app-chonker-number-info [text]="standardStatistics.mostUsedSkill.key" [amount]="standardStatistics.mostUsedSkill.value" subText="Mentions"></app-chonker-number-info>
-    <app-chonker-number-info text="One-of Skills" [amount]="standardStatistics.amountOfSkillsOnlyUsedOnce"
+    <app-chonker-number-info text="One-off Skills" [amount]="standardStatistics.amountOfSkillsOnlyUsedOnce"
                              subText="Skills that were only mentioned once"></app-chonker-number-info>
   </div>
 
@@ -33,7 +33,7 @@
   <div class="row">
     <app-chonker-number-info text="Spells" [amount]="standardStatistics.uniqueSpells"></app-chonker-number-info>
     <app-chonker-number-info [text]="standardStatistics.mostUsedSpell.key" [amount]="standardStatistics.mostUsedSpell.value" subText="Mentions"></app-chonker-number-info>
-    <app-chonker-number-info text="One-of Spells" [amount]="standardStatistics.amountOfSkillsOnlyUsedOnce"
+    <app-chonker-number-info text="One-off Spells" [amount]="standardStatistics.amountOfSkillsOnlyUsedOnce"
                              subText="Spells that were only mentioned once"></app-chonker-number-info>
   </div>
 
