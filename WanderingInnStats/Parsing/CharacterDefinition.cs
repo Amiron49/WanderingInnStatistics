@@ -176,7 +176,7 @@ namespace WanderingInnStats.Parsing
 
         public string JsonEquivalent => Name;
 
-        private static string[] ManualCommonWords = { "The", "Soldier", "Queen", "King", "Emperor", "Lord", "Lady", "Boy", "Girl", "One", "Two", "Single" };
+        private static string[] ManualCommonWords = { "The", "Soldier", "Queen", "King", "Emperor", "Lord", "Lady", "Boy", "Girl", "One", "Two", "Single", "Ser", "Sir" };
 
         private static HashSet<string> CommonWordsToIgnore = new(RaceHelper.Races.Concat(RaceHelper.Races.Reverse().Skip(1).Select(x => x.ToLower()))
             .Concat(ManualCommonWords).Concat(ManualCommonWords.Select(x => x.ToLower())));
