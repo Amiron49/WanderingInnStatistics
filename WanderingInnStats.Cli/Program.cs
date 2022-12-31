@@ -37,7 +37,7 @@ namespace WanderingInnStats.Cli
             chapters = chapters.Where(x => x.Name != "Glossary").ToList();
 
             var characters = await ScrappingHelper.ScrapeWikiForCharacters(rawCharactersCacheFile);
-            characters = characters.Where(x => !x.Name.Contains("Chapter 8.17 H")).ToList();
+            characters = characters.Where(x => !x.Name.Contains("Chapter 8.17 H") && !x.Name.Contains("Gnoll Geneva")).ToList();
 
             CharacterDefinitionSanityCheck(characters);
             DirtyChapterFixing(chapters);

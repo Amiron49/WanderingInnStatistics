@@ -7,11 +7,23 @@ namespace WanderingInnStats
 {
     public static class StatisticsHelper
     {
-        public static void Increment<T>(this Dictionary<T, int> dictionary, T key, int amount = 1) where T : notnull
+        public static void Increment<T>(this Dictionary<T, int> dictionary, T key, int amount = 1, string hint = "") where T : notnull
         {
             if (key is string test)
             {
-                if (string.IsNullOrEmpty(test) || test != test.Singularize(false))
+                if (hint == "class" && test.Contains("fireball", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"we ballin");
+                }
+                
+                var isNullOrEmpty = string.IsNullOrEmpty(test);
+
+                if (isNullOrEmpty)
+                {
+                    Console.WriteLine($"Singularized is empty: {test}");
+                }
+                
+                if (isNullOrEmpty || test != test.Singularize(false))
                 {
                     Console.WriteLine($"Singularized: {test}");
                 }

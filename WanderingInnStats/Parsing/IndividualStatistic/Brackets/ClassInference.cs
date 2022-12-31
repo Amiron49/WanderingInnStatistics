@@ -13,40 +13,10 @@ namespace WanderingInnStats.Parsing.IndividualStatistic.Brackets
 	{
 		protected override string Name => nameof(ClassInference);
 		protected override IEnumerable<Regex> Regexes { get; }
-		private string[] _races =
+
+        public ClassInference(ILogger logger) : base(logger)
 		{
-			"Antinium",
-			"Beastkin",
-			"Centaur",
-			"Demon",
-			"Djinn",
-			"Dragon",
-			"Drake",
-			"Dullahan",
-			"Dwarf",
-			"Elf",
-			"Garuda",
-			"Gazer",
-			"Gnoll",
-			"Goblin",
-			"Harpy",
-			"Halfling",
-			"Human",
-			"Jinn",
-			"Minotaur",
-			"Naga",
-			"Oldblood",
-			"Rashkghar",
-			"Scorchling",
-			"Selphid",
-			"Troll",
-			"Vampire",
-			"male",
-		};
-		
-		public ClassInference(ILogger logger) : base(logger)
-		{
-			var racesGigaString = "((" + string.Join(")|(", _races) + "))";
+			var racesGigaString = "((" + string.Join(")|(", RaceHelper.Races) + "))";
 
 			Regexes = new Regex[]
 			{
@@ -63,10 +33,44 @@ namespace WanderingInnStats.Parsing.IndividualStatistic.Brackets
 
 		protected override bool HandleMatch(Match match, WanderingInnStatistics statistics, string original, WanderingInnDefinitions wanderingInnDefinitions)
 		{
-			var @class = match.Groups["class"].Value.Singularize(false);
-			statistics.Classes.Increment(@class);
+			var className = match.Groups["class"].Value.Singularize(false);
+			statistics.Classes.Increment(className, hint: "class");
 			
 			return true;
 		}
 	}
+
+    public static class RaceHelper
+    {
+        public static string[] Races =
+        {
+            "Antinium",
+            "Beastkin",
+            "Centaur",
+            "Demon",
+            "Djinn",
+            "Dragon",
+            "Drake",
+            "Dullahan",
+            "Dwarf",
+            "Elf",
+            "Garuda",
+            "Gazer",
+            "Gnoll",
+            "Goblin",
+            "Harpy",
+            "Halfling",
+            "Human",
+            "Jinn",
+            "Minotaur",
+            "Naga",
+            "Oldblood",
+            "Rashkghar",
+            "Scorchling",
+            "Selphid",
+            "Troll",
+            "Vampire",
+            "male"
+        };
+    }
 }

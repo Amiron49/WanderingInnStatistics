@@ -23,10 +23,10 @@ namespace WanderingInnStats.Parsing.IndividualStatistic.Brackets
 
 		protected override bool HandleMatch(Match match, WanderingInnStatistics statistics, string original, WanderingInnDefinitions wanderingInnDefinitions)
 		{
-			var @class = match.Groups["class"].Value.Singularize(false);
+			var className = match.Groups["class"].Value.Singularize(false);
 			var level = int.Parse(match.Groups["level"].Value);
 			
-			statistics.ClassLevelUps.Increment(new ClassWithLevel(@class, level));
+			statistics.ClassLevelUps.Increment(new ClassWithLevel(className, level));
 
 			return true;
 		}

@@ -25,7 +25,7 @@ namespace WanderingInnStats.Parsing.IndividualStatistic.Brackets
 
 			if (wanderingInnDefinitions.Classes.Contains(withoutBrackets))
 			{
-				statistics.Classes.Increment(withoutBrackets);
+				statistics.Classes.Increment(withoutBrackets, hint: "class");
 				return true;
 			}
 

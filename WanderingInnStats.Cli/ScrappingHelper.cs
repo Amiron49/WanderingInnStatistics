@@ -18,7 +18,24 @@ namespace WanderingInnStats.Cli
             if (File.Exists(path))
             {
                 Console.WriteLine($"Nvm got a cache for that @ {path}");
-                return await DeSerialiseDump(path);
+                var deSerialiseDump = await DeSerialiseDump(path);
+
+                var manualOverrides = Directory.GetFiles(@"W:\temp\wanderingInn\ManualOverrides");
+
+                foreach (var manualOverride in manualOverrides)
+                {
+                    using var fileStream = File.OpenRead(manualOverride);
+                    using var reader = new StreamReader(fileStream);
+
+                    var urlMatcher = await reader.ReadLineAsync();
+                    var text = await reader.ReadToEndAsync();
+
+                    var matchingChapter = deSerialiseDump.Single(x => x.Url == urlMatcher);
+
+                    matchingChapter.Text = text;
+                }
+                
+                return deSerialiseDump;
             }
             
             var toc = await Scrapper.GetToc();

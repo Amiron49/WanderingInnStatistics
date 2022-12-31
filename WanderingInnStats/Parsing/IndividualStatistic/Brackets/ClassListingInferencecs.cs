@@ -31,8 +31,8 @@ namespace WanderingInnStats.Parsing.IndividualStatistic.Brackets
 
 			foreach (var bracket in matches.ToList())
 			{
-				var @class = bracket.Groups["content"].Value.Singularize(false);
-				statistics.Classes.Increment(@class);
+				var className = bracket.Groups["content"].Value.Singularize(false);
+				statistics.Classes.Increment(className, hint: "class");
 			}
 			
 			return true;

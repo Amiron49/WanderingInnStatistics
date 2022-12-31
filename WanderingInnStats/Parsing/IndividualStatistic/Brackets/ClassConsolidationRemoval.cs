@@ -23,8 +23,8 @@ namespace WanderingInnStats.Parsing.IndividualStatistic.Brackets
 
 		protected override bool HandleMatch(Match match, WanderingInnStatistics statistics, string original, WanderingInnDefinitions wanderingInnDefinitions)
 		{
-			var @class = match.Groups["class"].Value.Singularize(false);
-			statistics.ClassConsolidationRemovals.Increment(@class);
+			var className = match.Groups["class"].Value.Singularize(false);
+			statistics.ClassConsolidationRemovals.Increment(className);
 			return true;
 		}
 	}

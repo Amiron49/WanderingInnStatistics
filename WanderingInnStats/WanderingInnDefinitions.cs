@@ -65,7 +65,8 @@ namespace WanderingInnStats
 
         public void Add(List<CharacterRaw> parsedCharacters)
         {
-            var converted = parsedCharacters.Select(CreateCharacterDefinition).Distinct().ToList();
+            var characterDefinitions = parsedCharacters.Select(CreateCharacterDefinition).Distinct().ToList();
+            var converted = characterDefinitions.Where(x => x.Name != "Gnoll Geneva").ToList();
             Characters.AddRange(converted);
         }
 
@@ -73,17 +74,18 @@ namespace WanderingInnStats
         {
             var potentialConflicts = Characters.ToList();
 
-            var allConflicts = new Dictionary<CharacterDefinition, List<CharacterDefinition>>(); 
-			
+            var allConflicts = new Dictionary<CharacterDefinition, List<CharacterDefinition>>();
+
             foreach (var definition in Characters)
             {
                 potentialConflicts.Remove(definition);
 
-                var conflicts = potentialConflicts.Where(x => definition.ContainsMention(x.NameParts) != MentionMatch.None).ToList();
+                var conflicts = potentialConflicts.Where(x => definition.ContainsMention(x.NameParts) is not MentionMatch.None or MentionMatch.CommonWordMatch)
+                    .ToList();
 
                 if (conflicts.Count > 5)
                     throw new Exception($"{definition.Name} has too many character definition conflicts: {allConflicts.Count}");
-				
+
                 if (conflicts.Any())
                     allConflicts.Add(definition, conflicts);
             }
@@ -94,7 +96,6 @@ namespace WanderingInnStats
 
         public static CharacterDefinition CreateCharacterDefinition(CharacterRaw raw)
         {
-				
             CharacterDefinition characterDefinition = new(raw.WikiUrl, raw.Name)
             {
                 Affiliations = raw.Affiliations?.SelectMany(x => x.Value).ToArray() ?? Array.Empty<string>(),
@@ -106,7 +107,7 @@ namespace WanderingInnStats
                 Species = raw.Species,
                 FamilyMembers = raw.FamilyMembers
             };
-			
+
             return characterDefinition;
         }
     }

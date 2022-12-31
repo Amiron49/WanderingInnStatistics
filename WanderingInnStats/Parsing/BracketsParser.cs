@@ -31,7 +31,7 @@ namespace WanderingInnStats.Parsing
 				new SpellInference(logger),
 				new SkillListingInference(logger),
 				new SkillInference(logger),
-				new ClassByPossessiveInference(logger),
+				//new ClassByPossessiveInference(logger),
 				new KnownBrackets(logger),
 				new UnknownBrackets(logger)
 			};
