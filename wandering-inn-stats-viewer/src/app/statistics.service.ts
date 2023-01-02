@@ -24,7 +24,8 @@ export class StatisticsService {
     if (this.cached)
       return this.cached;
 
-    let stats = <WanderingInnStatistic><any>fullStatistics
+    let untypedStats = fullStatistics;
+    let stats = <WanderingInnStatistic><any>untypedStats
 
     stats.Volumes.flatMap(x => x.Chapters).forEach(x => x.Chapter.Date = new Date(x.Chapter.Date))
 
@@ -104,13 +105,13 @@ export class StandardStatisticInterpretation {
     this.uniqueClasses = classes.length;
     this.classesOnlyUsedOnce = classes.filter(x => x.value == 1).length;
 
-    let skills = Helpers.ToDictionary(this.statistics.Skills).filter(statisticsService.skillFilter);
+    let skills = Helpers.ToDictionary(this.statistics.SkillsSkills);
     this.mostUsedSkill = skills.sort(Helpers.compare)[0];
     this.topSkillsChartOptions = StandardStatisticInterpretation.createKVPMentionBasedBarChart(skills, 10)
     this.amountOfSkillsOnlyUsedOnce = skills.filter(x => x.value == 1).length;
     this.uniqueSkills = skills.length;
 
-    let spells = Helpers.ToDictionary(this.statistics.Skills).filter(statisticsService.spellFilter);
+    let spells = Helpers.ToDictionary(this.statistics.SkillsSpells);
     this.topSpellsChartOptions = StandardStatisticInterpretation.createKVPMentionBasedBarChart(spells, 10)
     this.mostUsedSpell = spells.sort(Helpers.compare)[0];
     this.amountOfSpellsOnlyUsedOnce = spells.filter(x => x.value == 1).length;

@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Serialization;
 using WanderingInnStats.Core;
 using WanderingInnStats.Parsing;
 
@@ -23,6 +25,9 @@ namespace WanderingInnStats
         Dictionary<string, int> SpellObtains { get; }
         Dictionary<string, int> SkillLoss { get; }
         Dictionary<Skill, int> Skills { get; }
+        Dictionary<string, int> SkillsSimple { get; }
+        Dictionary<string, int> SkillsSkills { get; }
+        Dictionary<string, int> SkillsSpells { get; }
         Dictionary<string, int> OtherWordsUsage { get; }
     }
 
@@ -44,14 +49,28 @@ namespace WanderingInnStats
         public Dictionary<string, int> SpellObtains => Children.Select(x => x.SpellObtains).Accumulate();
         public Dictionary<string, int> SkillLoss => Children.Select(x => x.SkillLoss).Accumulate();
         public Dictionary<Skill, int> Skills => Children.Select(x => x.Skills).Accumulate();
+
+        public Dictionary<string, int> SkillsSimple
+        {
+            get
+            {
+                var skillsGrouped = Skills.GroupBy(x => x.Key.Name)
+                    .Select(grouping => grouping.Aggregate(new KeyValuePair<string, int>("", 0), (a, b) => new KeyValuePair<string, int>(b.Key.Name, a.Value + b.Value)));
+
+                return skillsGrouped.ToDictionary(x => x.Key, x => x.Value);
+            }
+        }
+
+        public Dictionary<string, int> SkillsSkills => Skills.Where(x => x.Key.Type == SkillType.Skill).ToDictionary(pair => pair.Key.Name, pair => pair.Value);
+        public Dictionary<string, int> SkillsSpells => Skills.Where(x => x.Key.Type == SkillType.Spell).ToDictionary(pair => pair.Key.Name, pair => pair.Value);
         public Dictionary<string, int> OtherWordsUsage => Children.Select(x => x.OtherWordsUsage).Accumulate();
 
         protected abstract IEnumerable<IWanderingInnStatistics> Children { get; }
     }
-    
-    public class FullStatistics: AccumulatingStatistics
+
+    public class FullStatistics : AccumulatingStatistics
     {
-        public List<VolumeStatistics> Volumes { get; }
+        public List<VolumeStatistics> Volumes { get; set; }
         protected override IEnumerable<IWanderingInnStatistics> Children => Volumes;
 
         public FullStatistics(List<VolumeStatistics> volumes)
@@ -59,8 +78,8 @@ namespace WanderingInnStats
             Volumes = volumes;
         }
     }
-    
-    public class VolumeStatistics: AccumulatingStatistics
+
+    public class VolumeStatistics : AccumulatingStatistics
     {
         public string Name { get; }
         public List<ChapterStatistics> Chapters { get; }
@@ -72,8 +91,8 @@ namespace WanderingInnStats
             Chapters = chapters;
         }
     }
-    
-    public class ChapterStatistics: WanderingInnStatistics
+
+    public class ChapterStatistics : WanderingInnStatistics
     {
         public Chapter Chapter { get; }
 
@@ -119,6 +138,19 @@ namespace WanderingInnStats
         public Dictionary<string, int> SpellObtains { get; protected init; } = new();
         public Dictionary<string, int> SkillLoss { get; protected init; } = new();
         public Dictionary<Skill, int> Skills { get; protected init; } = new();
+        public Dictionary<string, int> SkillsSimple
+        {
+            get
+            {
+                var skillsGrouped = Skills.GroupBy(x => x.Key.Name)
+                    .Select(grouping => grouping.Aggregate(new KeyValuePair<string, int>("", 0), (a, b) => new KeyValuePair<string, int>(b.Key.Name, a.Value + b.Value)));
+
+                return skillsGrouped.ToDictionary(x => x.Key, x => x.Value);
+            }
+        }
+
+        public Dictionary<string, int> SkillsSkills => Skills.Where(x => x.Key.Type == SkillType.Skill).ToDictionary(pair => pair.Key.Name, pair => pair.Value);
+        public Dictionary<string, int> SkillsSpells => Skills.Where(x => x.Key.Type == SkillType.Spell).ToDictionary(pair => pair.Key.Name, pair => pair.Value);
         public Dictionary<string, int> OtherWordsUsage { get; protected init; } = new();
     }
 }

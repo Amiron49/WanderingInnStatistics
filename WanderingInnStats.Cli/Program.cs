@@ -186,8 +186,16 @@ namespace WanderingInnStats.Cli
                 {nameof(IWanderingInnStatistics.Characters), value.Characters}
             };
 
+          
             asDumboDictionary.AddIfNotNull(value, statistics => statistics.Classes);
-            asDumboDictionary.AddIfNotNull(value, statistics => statistics.Skills);
+            
+            if (value.SkillsSimple.Any())
+            {
+                asDumboDictionary.Add("Skills", value.SkillsSimple);
+            }
+            
+            asDumboDictionary.AddIfNotNull(value, statistics => statistics.SkillsSkills);
+            asDumboDictionary.AddIfNotNull(value, statistics => statistics.SkillsSpells);
             asDumboDictionary.AddIfNotNull(value, statistics => statistics.CancelledBrackets);
             asDumboDictionary.AddIfNotNull(value, statistics => statistics.CharacterMentions);
             asDumboDictionary.AddIfNotNull(value, statistics => statistics.ClassObtains);

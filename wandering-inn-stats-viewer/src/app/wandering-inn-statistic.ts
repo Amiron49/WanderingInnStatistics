@@ -3,6 +3,8 @@
   Characters: number = 0;
   Classes: { [key: string]: number } = {};
   Skills: { [key: string]: number } = {};
+  SkillsSpells: { [key: string]: number } = {};
+  SkillsSkills: { [key: string]: number } = {};
   CancelledBrackets: { [key: string]: number } = {};
   CharacterMentions: { [key: string]: number } = {};
   ClassObtains: { [key: string]: number } = {};
