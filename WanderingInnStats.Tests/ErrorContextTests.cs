@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -23,7 +24,7 @@ namespace WanderingInnStats.Tests
 			var act = () => ChapterFixing.GetFixedText(chapter);
 
 			act.Should().Throw<ChapterFixupException>()
-				.Where(e => e.ChapterName == "7.28")
+				.Where(e => e.ChapterIssues.Single().Url == "https://example.invalid/7-28" && e.ChapterIssues.Single().Tab == "Fixed")
 				.WithMessage("*'7.28' (Volume 7)*'Previous Chapter Next Chapter'*2 times*Erin smiled*");
 		}
 
@@ -54,7 +55,7 @@ namespace WanderingInnStats.Tests
 			var act = () => parser.Create(chapter);
 
 			(await act.Should().ThrowAsync<ChapterParseException>())
-				.Where(e => e.ChapterName == "7.28")
+				.Where(e => e.ChapterIssues.Single().Url == "https://example.invalid/7-28" && e.ChapterIssues.Single().Tab == "Stats preview")
 				.WithMessage("*'7.28'*failed in BracketsParser*matched 1?202 chars*");
 		}
 

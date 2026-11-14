@@ -1,4 +1,4 @@
-@page "/statistics"
+﻿@page "/statistics"
 @using System.Diagnostics
 @using Microsoft.EntityFrameworkCore
 @using Serilog
@@ -9,6 +9,7 @@
 @inject WorkspaceOptions Options
 @inject JobRunner Jobs
 @inject LogBuffer Logs
+@inject ChapterService ChapterService
 
 <h1>Statistics</h1>
 
@@ -54,13 +55,6 @@
                 <button class="btn btn-sm btn-outline-success mt-2" @onclick="OpenExportFolder">Open export folder</button>
             </div>
         }
-        @if (_error != null)
-        {
-            <div class="alert alert-danger">
-                <strong>Failed during @(_stage is { } s ? StageLabel(s) : "startup").</strong>
-                <ExceptionDetails Exception="_error" Context="@($"Statistics generation, stage {_stage}")" />
-            </div>
-        }
 
         <div class="d-flex align-items-center mb-1">
             <strong>Log</strong>
@@ -70,6 +64,15 @@
         <LogTail Lines="300" />
     </div>
 </div>
+
+@if (_error != null)
+{
+    @* Full width below the controls and log: error texts are long and would otherwise squeeze or widen the log column. *@
+    <div class="alert alert-danger mt-3">
+        <strong>Failed during @(_stage is { } s ? StageLabel(s) : "startup").</strong>
+        <ExceptionDetails Exception="_error" Context="@($"Statistics generation, stage {_stage}")" />
+    </div>
+}
 
 <h4 class="mt-4">Run history</h4>
 <table class="table table-sm">
@@ -84,7 +87,7 @@
             <td class="text-end">@run.ChapterCount</td>
             <td class="text-end">@run.CharacterCount</td>
             <td class="text-end">@run.UnknownCount</td>
-            <td class="small text-danger" style="white-space: pre-wrap">@run.Error</td>
+            <td class="small text-danger run-error"><ChapterLinkedText Text="@run.Error" Ids="_chapterIds" Tab="Fixed" /></td>
         </tr>
     }
     </tbody>
@@ -95,6 +98,7 @@
     private PipelineStage? _stage;
     private PipelineResult? _result;
     private Exception? _error;
+    private IReadOnlyDictionary<string, int> _chapterIds = new Dictionary<string, int>();
     private bool _wasRunning;
 
     // Stage state survives page navigation while a run is in progress.
@@ -112,6 +116,7 @@
     {
         await using var db = DbFactory.CreateDbContext();
         _runs = await db.Runs.AsNoTracking().OrderByDescending(x => x.StartedAt).Take(25).ToListAsync();
+        _chapterIds = _runs.Any(x => x.Error != null) ? await ChapterService.GetIdsByNameAsync() : new Dictionary<string, int>();
     }
 
     private void Run()

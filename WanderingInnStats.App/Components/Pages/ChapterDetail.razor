@@ -51,7 +51,7 @@
 </div>
 
 <ul class="nav nav-tabs mb-2">
-    @foreach (var tab in new[] { "Raw", "Fixed", "Override", "Stats preview" })
+    @foreach (var tab in Tabs)
     {
         <li class="nav-item">
             <button class="nav-link @(_tab == tab ? "active" : "")" @onclick="() => SelectTab(tab)">
@@ -165,6 +165,9 @@
 @code {
     [Parameter] public int Id { get; set; }
 
+    /// <summary>Tab to open, e.g. from an error's chapter link ("Fixed", "Stats preview").</summary>
+    [SupplyParameterFromQuery] public string? Tab { get; set; }
+
     private StoredChapter? _chapter;
     private bool _notFound;
     private string _tab = "Raw";
@@ -177,6 +180,8 @@
     private bool _previewing;
     private bool _wasRunning;
 
+    private static readonly string[] Tabs = { "Raw", "Fixed", "Override", "Stats preview" };
+
     private static readonly Regex SuspiciousRegex = new(
         string.Join("|", ChapterFixing.SuspiciousSentences.Select(Regex.Escape)),
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -185,6 +190,8 @@
     {
         Jobs.Changed -= OnJobChanged;
         Jobs.Changed += OnJobChanged;
+        if (Tab != null && Tabs.Contains(Tab))
+            _tab = Tab;
         await Load();
     }
 

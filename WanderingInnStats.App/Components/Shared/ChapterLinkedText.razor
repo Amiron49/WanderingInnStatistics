@@ -1,0 +1,47 @@
+@using System.Text.RegularExpressions
+
+@* Plain error text with every quoted, known chapter name ('7.28') turned into a link to that chapter. *@
+
+@foreach (var (text, id) in Split())
+{
+    if (id is { } chapterId)
+    {
+        <a href="@ChapterIssueLinks.ChapterHref(chapterId, Tab)">@text</a>
+    }
+    else
+    {
+        @text
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public string? Text { get; set; }
+
+    /// <summary>Chapter ids by trimmed name, e.g. from <see cref="ChapterService.GetIdsByNameAsync"/>.</summary>
+    [Parameter, EditorRequired] public IReadOnlyDictionary<string, int> Ids { get; set; } = null!;
+
+    /// <summary>Chapter page tab to open.</summary>
+    [Parameter] public string? Tab { get; set; }
+
+    private static readonly Regex QuotedName = new(@"'([^'\r\n]{1,150})'", RegexOptions.Compiled);
+
+    private IEnumerable<(string Text, int? Id)> Split()
+    {
+        if (string.IsNullOrEmpty(Text))
+            yield break;
+
+        var position = 0;
+        foreach (Match match in QuotedName.Matches(Text))
+        {
+            var name = match.Groups[1];
+            if (!Ids.TryGetValue(name.Value.Trim(), out var id))
+                continue;
+
+            yield return (Text[position..name.Index], null);
+            yield return (name.Value, id);
+            position = name.Index + name.Length;
+        }
+
+        yield return (Text[position..], null);
+    }
+}
