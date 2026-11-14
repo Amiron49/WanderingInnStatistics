@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using WanderingInnStats.Pipeline.Data;
 using WanderingInnStats.Pipeline.Diagnostics;
@@ -202,6 +202,23 @@ public class ChapterService
                 x.RawText != null, x.RawText == null ? 0 : x.RawText.Length,
                 x.OverrideText != null, x.OverrideStale, x.Excluded, x.DownloadedAt, x.LastError, x.PatreonLocked))
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>Stored chapter ids by url, for linking to chapters named in errors.</summary>
+    public async Task<Dictionary<string, int>> GetIdsByUrlAsync(IEnumerable<string> urls, CancellationToken cancellationToken = default)
+    {
+        var urlList = urls.Distinct().ToList();
+        await using var db = _dbFactory.CreateDbContext();
+        var rows = await db.Chapters.Where(x => urlList.Contains(x.Url)).Select(x => new { x.Url, x.Id }).ToListAsync(cancellationToken);
+        return rows.ToDictionary(x => x.Url, x => x.Id);
+    }
+
+    /// <summary>Stored chapter ids by name, for linking chapter names in stored error texts. Ambiguous names are left out.</summary>
+    public async Task<Dictionary<string, int>> GetIdsByNameAsync(CancellationToken cancellationToken = default)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        var rows = await db.Chapters.Select(x => new { x.Name, x.Id }).ToListAsync(cancellationToken);
+        return rows.GroupBy(x => x.Name.Trim()).Where(g => g.Count() == 1).ToDictionary(g => g.Key, g => g.Single().Id);
     }
 
     public async Task<StoredChapter?> GetAsync(int id, CancellationToken cancellationToken = default)

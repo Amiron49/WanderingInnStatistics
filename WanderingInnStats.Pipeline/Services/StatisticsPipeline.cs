@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using WanderingInnStats.Core;
@@ -220,9 +220,9 @@ public class StatisticsPipeline
         dirty = ChapterFixing.FindDirtyChapters(chapters).Where(x => x.Volume.Trim() != "Volume 8").ToList();
         logger.LogInformation("{count} dirty chapters remaining", dirty.Count);
         if (dirty.Count > 0)
-            throw new InvalidOperationException(
-                $"{dirty.Count} chapter(s) are still dirty after fixing; write an override for each (Chapters → chapter → Override):"
-                + string.Concat(dirty.Select(x => $"{Environment.NewLine}• '{x.Name}' ({x.Volume.Trim()}): {ChapterFixing.DirtyReason(x)}")));
+            throw new DirtyChaptersException(dirty
+                .Select(x => new ChapterIssue(x.Name, x.Url, $"({x.Volume.Trim()}) {ChapterFixing.DirtyReason(x)}", "Fixed"))
+                .ToList());
     }
 
     private async Task FinishRun(StatisticsRun run, RunStatus status, string? error)

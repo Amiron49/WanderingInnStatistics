@@ -175,16 +175,31 @@ namespace WanderingInnStats.Pipeline
     }
 
     /// <summary>A <see cref="ChapterFixing.Fixup"/> safety check refused to change a chapter.</summary>
-    public class ChapterFixupException : Exception
+    public class ChapterFixupException : Exception, IHasChapterIssues
     {
         public ChapterFixupException(Chapter chapter, string step, string reason)
             : base($"Fixing chapter '{chapter.Name}' ({chapter.Volume.Trim()}) failed. {step} was refused: {reason}")
         {
             ChapterName = chapter.Name;
             ChapterUrl = chapter.Url;
+            ChapterIssues = new[] { new ChapterIssue(chapter.Name, chapter.Url, $"{step} was refused", "Fixed") };
         }
 
         public string ChapterName { get; }
         public string ChapterUrl { get; }
+        public IReadOnlyList<ChapterIssue> ChapterIssues { get; }
+    }
+
+    /// <summary>Chapters that still trip the dirty check after <see cref="ChapterFixing.Fixup"/>.</summary>
+    public class DirtyChaptersException : InvalidOperationException, IHasChapterIssues
+    {
+        public DirtyChaptersException(IReadOnlyList<ChapterIssue> issues)
+            : base($"{issues.Count} chapter(s) are still dirty after fixing; write an override for each (chapter page → Override):"
+                   + string.Concat(issues.Select(x => $"{Environment.NewLine}• '{x.Name}': {x.Detail}")))
+        {
+            ChapterIssues = issues;
+        }
+
+        public IReadOnlyList<ChapterIssue> ChapterIssues { get; }
     }
 }

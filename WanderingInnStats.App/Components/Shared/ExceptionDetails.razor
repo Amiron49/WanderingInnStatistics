@@ -8,6 +8,8 @@
         <button class="btn btn-sm btn-outline-secondary" @onclick="Copy">@(_copied ? "Copied ✓" : "Copy full report")</button>
     </div>
 
+    <ChapterIssueLinks Exception="Exception" />
+
     @{ var level = 0; }
     @foreach (var ex in Chain(Exception))
     {
@@ -89,7 +91,8 @@
 
     private bool _copied;
 
-    private static IEnumerable<Exception> Chain(Exception root)
+    /// <summary>The exception and everything it wraps, breadth-first, including all of an AggregateException's inners.</summary>
+    internal static IEnumerable<Exception> Chain(Exception root)
     {
         var queue = new Queue<Exception>();
         queue.Enqueue(root);

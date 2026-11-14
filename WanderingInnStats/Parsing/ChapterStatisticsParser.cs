@@ -114,7 +114,7 @@ namespace WanderingInnStats.Parsing
     }
 
     /// <summary>A parser failed on one chapter; names the chapter and parser so the cause can be found.</summary>
-    public class ChapterParseException : Exception
+    public class ChapterParseException : Exception, IHasChapterIssues
     {
         public ChapterParseException(Chapter chapter, string parser, Exception inner)
             : base($"Parsing chapter '{chapter.Name}' ({chapter.Volume.Trim()}) failed in {parser}: {inner.Message}", inner)
@@ -122,10 +122,12 @@ namespace WanderingInnStats.Parsing
             ChapterName = chapter.Name;
             ChapterUrl = chapter.Url;
             Parser = parser;
+            ChapterIssues = new[] { new ChapterIssue(chapter.Name, chapter.Url, $"{parser}: {inner.Message}", "Stats preview") };
         }
 
         public string ChapterName { get; }
         public string ChapterUrl { get; }
         public string Parser { get; }
+        public IReadOnlyList<ChapterIssue> ChapterIssues { get; }
     }
 }
