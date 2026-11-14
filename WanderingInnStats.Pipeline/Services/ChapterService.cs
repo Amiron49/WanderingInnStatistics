@@ -228,16 +228,18 @@ public class ChapterService
         return await db.Chapters.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
-    /// <summary>Runs the dirty check over every downloaded chapter's effective text. Returns the dirty chapter ids.</summary>
-    public async Task<HashSet<int>> FindDirtyAsync(CancellationToken cancellationToken = default)
+    /// <summary>Runs the dirty check over every downloaded chapter's effective text. Returns why each dirty chapter is dirty, by id.</summary>
+    public async Task<Dictionary<int, string>> FindDirtyAsync(CancellationToken cancellationToken = default)
     {
         await using var db = _dbFactory.CreateDbContext();
-        var dirty = new HashSet<int>();
+        var dirty = new Dictionary<int, string>();
         await foreach (var row in db.Chapters.AsNoTracking().Where(x => x.RawText != null).AsAsyncEnumerable().WithCancellation(cancellationToken))
         {
             var fixedResult = ChapterPreviewService.GetFixedText(row.ToChapter(), row.DisabledFixes);
-            if (fixedResult.IsDirty || fixedResult.Error != null)
-                dirty.Add(row.Id);
+            if (fixedResult.Error != null)
+                dirty[row.Id] = "Fixup refused: " + fixedResult.Error;
+            else if (fixedResult.IsDirty)
+                dirty[row.Id] = fixedResult.DirtyReason ?? "dirty";
         }
 
         return dirty;

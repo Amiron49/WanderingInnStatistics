@@ -42,7 +42,8 @@ public class StoredChapter
         Volume = Volume,
         Url = Url,
         Name = Name,
-        Date = Date,
+        // The scrapper stores UTC, but SQLite doesn't keep the kind; without it the export loses its "Z".
+        Date = DateTime.SpecifyKind(Date, DateTimeKind.Utc),
         Comments = Comments,
         Text = EffectiveText
     };

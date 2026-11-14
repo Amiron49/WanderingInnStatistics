@@ -80,6 +80,7 @@
         <option value="override">Has override</option>
         <option value="stale">Override stale</option>
         <option value="dirty">Dirty (after scan)</option>
+        <option value="too-short">Too short (cut-off download?)</option>
         <option value="excluded">Excluded</option>
         <option value="not-in-toc">Not in TOC</option>
         <option value="patreon-locked">Patreon-locked</option>
@@ -126,7 +127,8 @@ else
                         else if (chapter.LastError != null) { <a class="badge bg-danger text-decoration-none" href="chapters/@chapter.Id" title="@FirstLine(chapter.LastError)">failed</a> }
                         @if (chapter.HasOverride) { <span class="badge bg-info text-dark">override</span> }
                         @if (chapter.OverrideStale) { <span class="badge bg-warning text-dark">override stale</span> }
-                        @if (_dirty?.Contains(chapter.Id) == true) { <span class="badge bg-danger">dirty</span> }
+                        @if (IsTooShort(chapter)) { <a class="badge bg-danger text-decoration-none" href="chapters/@chapter.Id?tab=Fixed" title="Only @chapter.Length.ToString("N0") chars: probably a cut-off download. Re-download it, or turn off the length check if the post really is this short.">too short</a> }
+                        @if (_dirty?.TryGetValue(chapter.Id, out var dirtyReason) == true) { <a class="badge bg-danger text-decoration-none" href="chapters/@chapter.Id?tab=Fixed" title="@dirtyReason">dirty</a> }
                         @if (chapter.DisabledFixes != ChapterFix.None) { <a class="badge bg-light text-dark border text-decoration-none" href="chapters/@chapter.Id?tab=Fixed" title="Turned off: @chapter.DisabledFixes">fixes off</a> }
                         @if (chapter.Excluded) { <span class="badge bg-dark">excluded</span> }
                         @if (!chapter.InToc) { <span class="badge bg-light text-dark border">not in TOC</span> }
@@ -141,7 +143,12 @@ else
 @code {
     private List<ChapterSummary> _all = new();
     private readonly HashSet<int> _selected = new();
-    private HashSet<int>? _dirty;
+    private Dictionary<int, string>? _dirty;
+
+    /// <summary>Downloaded text so short that the download probably stopped early. Overrides are the user's own text and are trusted.</summary>
+    private static bool IsTooShort(ChapterSummary chapter) =>
+        chapter.IsDownloaded && !chapter.HasOverride && !chapter.Excluded && !chapter.DisabledFixes.HasFlag(ChapterFix.LengthCheck)
+        && ChapterFixing.IsSuspiciouslyShort(chapter.Length);
     private TocDiff? _tocDiff;
     private string _search = "";
     private string _filter = "all";
@@ -160,7 +167,8 @@ else
             "failed" => x.LastError != null,
             "override" => x.HasOverride,
             "stale" => x.OverrideStale,
-            "dirty" => _dirty?.Contains(x.Id) == true,
+            "dirty" => _dirty?.ContainsKey(x.Id) == true,
+            "too-short" => IsTooShort(x),
             "excluded" => x.Excluded,
             "not-in-toc" => !x.InToc,
             "patreon-locked" => x.PatreonLocked,
