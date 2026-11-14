@@ -1,0 +1,3 @@
+[submodule "WanderingInnStats.Scrapping"]
+	path = WanderingInnStats.Scrapping
+	url = git@github.com:Amiron49/WanderingInnStatistics.Scrapping.git
