@@ -75,3 +75,24 @@ main {
         padding-right: 1.5rem !important;
     }
 }
+
+.top-row {
+    gap: 1.5rem;
+}
+
+.top-row ::deep .scrape-delay {
+    flex: 0 0 auto;
+}
+
+.top-row ::deep .scrape-delay .form-range {
+    width: 140px;
+}
+
+.top-row ::deep .scrape-delay-value {
+    min-width: 3.5rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.top-row ::deep .job-status {
+    min-width: 0;
+}

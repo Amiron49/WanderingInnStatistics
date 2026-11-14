@@ -1,4 +1,5 @@
 using WanderingInnStats.Pipeline;
+using WanderingInnStats.Scrapping;
 
 namespace WanderingInnStats.App.Services;
 
@@ -9,6 +10,7 @@ public static class SettingsStore
     private const string ExportKey = "workspace.export";
     private const string ViewerKey = "workspace.viewer";
     private const string CopyKey = "workspace.copyToViewer";
+    private const string ScrapeDelayKey = "scrape.delayMs";
 
     public static WorkspaceOptions Load()
     {
@@ -26,6 +28,17 @@ public static class SettingsStore
         Preferences.Default.Set(ExportKey, options.ExportDirectory ?? "");
         Preferences.Default.Set(ViewerKey, options.ViewerDataDirectory ?? "");
         Preferences.Default.Set(CopyKey, options.CopyToViewer);
+    }
+
+    /// <summary>Applies the persisted delay to the global <see cref="ScrapeGate"/>.</summary>
+    public static void LoadScrapeDelay()
+    {
+        ScrapeGate.Delay = TimeSpan.FromMilliseconds(Preferences.Default.Get(ScrapeDelayKey, (int)ScrapeGate.DefaultDelay.TotalMilliseconds));
+    }
+
+    public static void SaveScrapeDelay()
+    {
+        Preferences.Default.Set(ScrapeDelayKey, (int)ScrapeGate.Delay.TotalMilliseconds);
     }
 
     private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;

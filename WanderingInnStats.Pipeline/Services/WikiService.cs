@@ -63,7 +63,7 @@ public class WikiService
             }
             catch (Exception e)
             {
-                var snapshot = await ScrapeDiagnostics.CaptureAsync(WikiScrapper.CategoryUrl, WikiScrapper.ListingSelectors, _options.DiagnosticsDirectory, cancellationToken);
+                var snapshot = await ScrapeDiagnostics.SnapshotAsync(e, WikiScrapper.CategoryUrl, WikiScrapper.ListingSelectors, _options.DiagnosticsDirectory, cancellationToken);
                 throw new ScrapeException($"WikiScrapper.GetCharacterListingPages failed ({e.GetType().Name}: {e.Message})", e, snapshot, capture.Take());
             }
 
@@ -91,6 +91,15 @@ public class WikiService
                         characters.Add(character);
                     else
                         error = "No infobox found. " + capture.Take().Trim();
+                }
+                catch (ScrapeBlockedException e)
+                {
+                    // The server is refusing us (4xx/5xx or Cloudflare): stop instead of hammering it with the remaining pages.
+                    // Pages fetched so far stay in the HTML cache, so a later run doesn't re-fetch them.
+                    var snapshot = await ScrapeDiagnostics.SnapshotAsync(e, links[i], WikiScrapper.CharacterSelectors, _options.DiagnosticsDirectory, cancellationToken);
+                    throw new ScrapeException(
+                        $"Stopped after {i} of {links.Count} character pages: {e.Message}. Stored characters were left untouched; fetched pages stay cached.",
+                        e, snapshot, capture.Take());
                 }
                 catch (Exception e)
                 {

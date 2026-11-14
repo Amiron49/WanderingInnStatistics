@@ -1,0 +1,53 @@
+@implements IDisposable
+
+@* Global delay between requests to wanderinginn.com (see ScrapeGate). Lives in the header so it's reachable from every page. *@
+
+<div class="scrape-delay d-flex align-items-center gap-2"
+     title="Pause between two requests to wanderinginn.com. Applies to every download, including one that is already running.">
+    <label class="small text-muted text-nowrap mb-0" for="scrape-delay">Scrape delay</label>
+    <input id="scrape-delay" type="range" class="form-range"
+           min="@Min" max="@Max" step="100"
+           value="@_delayMs"
+           @oninput="OnInput" @onchange="OnChange" />
+    <span class="small text-nowrap scrape-delay-value">@Label</span>
+</div>
+
+@code {
+    private static readonly int Min = (int)ScrapeGate.MinDelay.TotalMilliseconds;
+    private static readonly int Max = (int)ScrapeGate.MaxDelay.TotalMilliseconds;
+
+    private int _delayMs;
+
+    private string Label => _delayMs < 1000 ? $"{_delayMs} ms" : $"{_delayMs / 1000.0:0.0} s";
+
+    protected override void OnInitialized()
+    {
+        _delayMs = (int)ScrapeGate.Delay.TotalMilliseconds;
+        ScrapeGate.Changed += OnGateChanged;
+    }
+
+    private void OnInput(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var value))
+            return;
+        _delayMs = value;
+        ScrapeGate.Delay = TimeSpan.FromMilliseconds(value);
+    }
+
+    private void OnChange(ChangeEventArgs e)
+    {
+        OnInput(e);
+        SettingsStore.SaveScrapeDelay();
+    }
+
+    private void OnGateChanged()
+    {
+        var current = (int)ScrapeGate.Delay.TotalMilliseconds;
+        if (current == _delayMs)
+            return;
+        _delayMs = current;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => ScrapeGate.Changed -= OnGateChanged;
+}

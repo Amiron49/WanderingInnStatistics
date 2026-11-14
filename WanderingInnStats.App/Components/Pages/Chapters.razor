@@ -7,9 +7,9 @@
 
 <div class="d-flex flex-wrap gap-2 mb-3">
     <button class="btn btn-outline-primary" disabled="@(Jobs.IsRunning)" @onclick="CheckToc">Check TOC</button>
-    <button class="btn btn-primary" disabled="@(Jobs.IsRunning || _notDownloaded == 0)" @onclick="DownloadMissing">Download not downloaded (@_notDownloaded)</button>
-    <button class="btn btn-outline-primary" disabled="@(Jobs.IsRunning || _selected.Count == 0)" @onclick="DownloadSelected">Re-download selected (@_selected.Count)</button>
-    <button class="btn btn-outline-secondary" disabled="@(Jobs.IsRunning || _all.Count == 0)" @onclick="DownloadAll">Re-download all</button>
+    <button class="btn btn-primary" disabled="@(Jobs.IsRunning || _notDownloaded == 0)" @onclick="DownloadMissing">Download not downloaded (@_notDownloaded) <EstimateHint Count="_notDownloaded" /></button>
+    <button class="btn btn-outline-primary" disabled="@(Jobs.IsRunning || _selected.Count == 0)" @onclick="DownloadSelected">Re-download selected (@_selected.Count) <EstimateHint Count="_selected.Count" /></button>
+    <button class="btn btn-outline-secondary" disabled="@(Jobs.IsRunning || _all.Count == 0)" @onclick="DownloadAll">Re-download all (@_all.Count) <EstimateHint Count="_all.Count" /></button>
     <button class="btn btn-outline-secondary" disabled="@(Jobs.IsRunning)" @onclick="ScanDirty">Scan for dirty chapters</button>
 </div>
 
@@ -240,7 +240,9 @@ else
         Jobs.TryStart(name, async ct =>
         {
             var progress = new Progress<DownloadProgress>(p =>
-                Jobs.Report($"{p.Done}/{p.Total} – {p.Current}" + (p.Failed > 0 ? $" ({p.Failed} failed)" : ""), p.Total == 0 ? null : 100.0 * p.Done / p.Total));
+                Jobs.Report($"{p.Done}/{p.Total} – {p.Current}" + (p.Failed > 0 ? $" ({p.Failed} failed)" : "")
+                            + (p.Done < p.Total ? $" · {ScrapeEstimate.For(p.Total - p.Done)} left" : ""),
+                    p.Total == 0 ? null : 100.0 * p.Done / p.Total));
             var result = await ChapterService.DownloadAsync(refs, progress, ct);
             if (result.Failed > 0)
             {

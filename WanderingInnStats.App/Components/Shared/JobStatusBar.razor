@@ -1,7 +1,7 @@
 @implements IDisposable
 @inject JobRunner Jobs
 
-<div class="job-status d-flex align-items-center gap-2 w-100">
+<div class="job-status d-flex align-items-center gap-2 flex-grow-1">
     @switch (Jobs.State)
     {
         case JobState.Idle:

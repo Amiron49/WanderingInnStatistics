@@ -80,7 +80,7 @@ public class ChapterService
             {
                 var consoleOutput = capture.Take();
                 _logger.LogWarning("Scrapper.GetToc threw {type}; capturing a snapshot of {url}", e.GetType().Name, Scrapper.TocUrl);
-                var snapshot = await ScrapeDiagnostics.CaptureAsync(Scrapper.TocUrl, Scrapper.TocSelectors, _options.DiagnosticsDirectory, cancellationToken);
+                var snapshot = await ScrapeDiagnostics.SnapshotAsync(e, Scrapper.TocUrl, Scrapper.TocSelectors, _options.DiagnosticsDirectory, cancellationToken);
                 _logger.LogWarning("{snapshot}", snapshot.ToString());
                 throw new ScrapeException($"Scrapper.GetToc failed ({e.GetType().Name}: {e.Message})", e, snapshot, consoleOutput);
             }
@@ -246,37 +246,26 @@ public class ChapterService
             cancellationToken.ThrowIfCancellationRequested();
             progress?.Report(new DownloadProgress(done, chapters.Count, chapterRef.Name, failed));
 
-            // Scrapper.GetChapter is private; GetChapters over a single-entry TOC is the public route to it.
-            var toc = new Toc();
-            toc.Contents.Add((chapterRef.Volume, chapterRef.Name, chapterRef.Url));
-
             Core.Chapter? downloaded = null;
             string? error = null;
-            using (var capture = await ConsoleCapture.StartAsync(cancellationToken))
+            ScrapeBlockedException? blocked = null;
+            PageSnapshot? snapshot = null;
+            try
             {
-                try
-                {
-                    await foreach (var chapter in Scrapper.GetChapters(toc).WithCancellation(cancellationToken))
-                        downloaded = chapter;
-
-                    if (downloaded == null)
-                        // GetChapters swallows the exception and prints it to the console; that's our only source for it.
-                        error = "Scrapper.GetChapters returned null. Its console output:\n" + capture.Take().Trim();
-                }
-                catch (Exception e) when (e is not OperationCanceledException)
-                {
-                    error = e.ToString();
-                    var consoleOutput = capture.Take().Trim();
-                    if (consoleOutput.Length > 0)
-                        error += "\n\nScrapper console output:\n" + consoleOutput;
-                }
+                downloaded = await Scrapper.GetChapter(chapterRef.Volume, chapterRef.Name, chapterRef.Url, cancellationToken);
             }
-
-            if (error != null && snapshots < MaxSnapshotsPerBatch)
+            catch (Exception e) when (e is not OperationCanceledException)
             {
-                snapshots++;
-                var snapshot = await ScrapeDiagnostics.CaptureAsync(chapterRef.Url, Scrapper.ChapterSelectors, _options.DiagnosticsDirectory, cancellationToken);
-                error += "\n\n" + snapshot;
+                error = e.ToString();
+                blocked = e as ScrapeBlockedException;
+
+                // A blocked response carries its own body, so snapshotting it costs no extra request.
+                if (blocked != null || snapshots < MaxSnapshotsPerBatch)
+                {
+                    snapshots++;
+                    snapshot = await ScrapeDiagnostics.SnapshotAsync(e, chapterRef.Url, Scrapper.ChapterSelectors, _options.DiagnosticsDirectory, cancellationToken);
+                    error += "\n\n" + snapshot;
+                }
             }
 
             await using (var db = _dbFactory.CreateDbContext())
@@ -323,6 +312,12 @@ public class ChapterService
 
             done++;
             progress?.Report(new DownloadProgress(done, chapters.Count, chapterRef.Name, failed));
+
+            // The server is refusing us (4xx/5xx or Cloudflare): stop instead of hammering it with the rest of the batch.
+            if (blocked != null)
+                throw new ScrapeException(
+                    $"Stopped after {done} of {chapters.Count} chapters ({done - failed} downloaded, saved): {blocked.Message}",
+                    blocked, snapshot, null);
         }
 
         return new DownloadResult(done - failed, failed, stale);

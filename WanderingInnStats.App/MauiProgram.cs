@@ -21,6 +21,7 @@ public static class MauiProgram
 #endif
 
         var options = SettingsStore.Load();
+        SettingsStore.LoadScrapeDelay();
         var logBuffer = new LogBuffer();
 
         // Parser debug output goes to the file only; the UI buffer filters on its own MinimumLevel.

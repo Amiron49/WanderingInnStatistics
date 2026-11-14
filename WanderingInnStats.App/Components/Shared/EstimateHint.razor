@@ -1,0 +1,16 @@
+@implements IDisposable
+
+@* "· ~12 min" for Count requests through the scrape gate; re-renders when the delay or measured request time changes. *@
+
+@if (Count > 0)
+{
+    <span class="estimate-hint opacity-75 small" title="Estimated with the current scrape delay and the average request time so far">· @ScrapeEstimate.For(Count)</span>
+}
+
+@code {
+    [Parameter] public int Count { get; set; }
+
+    protected override void OnInitialized() => ScrapeGate.Changed += OnGateChanged;
+    private void OnGateChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() => ScrapeGate.Changed -= OnGateChanged;
+}
