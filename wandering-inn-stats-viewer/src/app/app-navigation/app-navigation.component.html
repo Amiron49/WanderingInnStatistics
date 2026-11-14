@@ -2,30 +2,30 @@
   <mat-list-item [routerLink]="['/']">Main</mat-list-item>
   <div mat-subheader>Volumes</div>
   @for (volume of volumes; track volume) {
-    <mat-list-item [routerLink]="['/volume', volume]" (click)="this.onClickNavigationItem.emit()" role="list">
+    <mat-list-item [routerLink]="['/volume', volume]" (click)="onClickNavigationItem.emit()" role="list">
       <a [routerLink]="['/volume', volume]" role="listitem">{{volume}}</a>
     </mat-list-item>
   }
   <div mat-subheader>Entities</div>
-  <mat-list-item [routerLink]="['/character']"  (click)="this.onClickNavigationItem.emit()">
+  <mat-list-item [routerLink]="['/character']"  (click)="onClickNavigationItem.emit()">
     <a [routerLink]="['/character']" role="listitem">Characters</a>
   </mat-list-item>
-  <mat-list-item [routerLink]="['/class']"  (click)="this.onClickNavigationItem.emit()">
+  <mat-list-item [routerLink]="['/class']"  (click)="onClickNavigationItem.emit()">
     <a [routerLink]="['/class']" role="listitem">Classes</a>
   </mat-list-item>
-  <mat-list-item [routerLink]="['/skill']"  (click)="this.onClickNavigationItem.emit()">
+  <mat-list-item [routerLink]="['/skill']"  (click)="onClickNavigationItem.emit()">
     <a [routerLink]="['/skill']" role="listitem">Skills</a>
   </mat-list-item>
-  <mat-list-item [routerLink]="['/species']"  (click)="this.onClickNavigationItem.emit()">
+  <mat-list-item [routerLink]="['/species']"  (click)="onClickNavigationItem.emit()">
     <a [routerLink]="['/species']" role="listitem">Species</a>
   </mat-list-item>
-  <mat-list-item [routerLink]="['/monster']"  (click)="this.onClickNavigationItem.emit()">
+  <mat-list-item [routerLink]="['/monster']"  (click)="onClickNavigationItem.emit()">
     <a [routerLink]="['/monster']" role="listitem">Monsters</a>
   </mat-list-item>
-  <mat-list-item [routerLink]="['/location']"  (click)="this.onClickNavigationItem.emit()">
+  <mat-list-item [routerLink]="['/location']"  (click)="onClickNavigationItem.emit()">
     <a [routerLink]="['/location']" role="listitem">Locations</a>
   </mat-list-item>
-  <mat-list-item [routerLink]="['/unknown']"  (click)="this.onClickNavigationItem.emit()">
+  <mat-list-item [routerLink]="['/unknown']"  (click)="onClickNavigationItem.emit()">
     <a [routerLink]="['/unknown']" role="listitem">Unknown Brackets</a>
   </mat-list-item>
   <mat-divider></mat-divider>

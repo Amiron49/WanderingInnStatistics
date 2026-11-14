@@ -1,29 +1,43 @@
-import { NO_ERRORS_SCHEMA } from '@angular/core';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import {ComponentFixture, TestBed} from '@angular/core/testing';
+import {provideRouter} from '@angular/router';
 
-import { VolumeStatisticsComponent } from './volume-statistics.component';
+import {VolumeStatisticsComponent} from './volume-statistics.component';
+import {StatisticsService} from "../statistics.service";
 
 describe('VolumeStatisticsComponent', () => {
   let component: VolumeStatisticsComponent;
   let fixture: ComponentFixture<VolumeStatisticsComponent>;
+  let volumeName: string;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ VolumeStatisticsComponent ],
-      providers: [ provideRouter([]) ],
-      schemas: [ NO_ERRORS_SCHEMA ]
-    })
-    .compileComponents();
-  });
+      imports: [VolumeStatisticsComponent],
+      providers: [provideRouter([])]
+    }).compileComponents();
 
-  beforeEach(() => {
+    volumeName = TestBed.inject(StatisticsService).getStatistics().Volumes[0].Name;
     fixture = TestBed.createComponent(VolumeStatisticsComponent);
     component = fixture.componentInstance;
-    fixture.detectChanges();
+    fixture.componentRef.setInput('volume', volumeName);
+    await fixture.whenStable();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
+  it('shows the volume from the route parameter', () => {
+    expect(component.statistics()?.Name).toBe(volumeName);
+    expect(fixture.nativeElement.querySelector('h1')?.textContent).toBe(volumeName);
+  });
+
+  it('picks the radar tab from the checkboxes', () => {
+    expect(component.selectedTab()).toBe(0);
+    component.filterErin.set(true);
+    expect(component.selectedTab()).toBe(1);
+    component.weighted.set(true);
+    expect(component.selectedTab()).toBe(2);
+  });
+
+  it('shows nothing for an unknown volume', async () => {
+    fixture.componentRef.setInput('volume', 'No such volume');
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('h1')).toBeNull();
   });
 });

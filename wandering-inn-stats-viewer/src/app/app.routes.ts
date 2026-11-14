@@ -1,5 +1,4 @@
-import {NgModule} from '@angular/core';
-import {RouterModule, Routes} from '@angular/router';
+import {Routes} from '@angular/router';
 import {MainStatisticsComponent} from "./main-statistics/main-statistics.component";
 import {VolumeStatisticsComponent} from "./volume-statistics/volume-statistics.component";
 import {
@@ -10,7 +9,7 @@ import {ImpressumComponent} from "./impressum/impressum.component";
 import {AboutComponent} from "./about/about.component";
 import {HarshTruthComponent} from "./harsh-truth/harsh-truth.component";
 
-const routes: Routes = [
+export const routes: Routes = [
   {path: "", component: MainStatisticsComponent},
   {path: "about", component: AboutComponent},
   {path: "impressum", component: ImpressumComponent},
@@ -24,10 +23,3 @@ const routes: Routes = [
     ]
   },
 ];
-
-@NgModule({
-  imports: [RouterModule.forRoot(routes)],
-  exports: [RouterModule]
-})
-export class AppRoutingModule {
-}

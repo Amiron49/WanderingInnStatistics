@@ -1,26 +1,17 @@
-import {Component, EventEmitter, OnInit, Output, ChangeDetectionStrategy} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, output} from '@angular/core';
 import {StatisticsService} from "../statistics.service";
+import {MatDivider, MatListItem, MatListSubheaderCssMatStyler, MatNavList} from '@angular/material/list';
+import {RouterLink} from '@angular/router';
 
 @Component({
-    selector: 'app-navigation',
-    templateUrl: './app-navigation.component.html',
-    styleUrls: ['./app-navigation.component.scss'],
-    changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+  selector: 'app-navigation',
+  templateUrl: './app-navigation.component.html',
+  styleUrls: ['./app-navigation.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [MatNavList, MatListItem, RouterLink, MatListSubheaderCssMatStyler, MatDivider]
 })
-export class AppNavigationComponent implements OnInit {
-
-  @Output()
-  onClickNavigationItem: EventEmitter<void> = new EventEmitter<void>();
-  volumes: string[] = [];
-
-  constructor(
-    private statisticService: StatisticsService
-  ) {
-    this.volumes = statisticService.getStatistics().Volumes.map(x => x.Name);
-  }
-
-  ngOnInit(): void {
-  }
-
+export class AppNavigationComponent {
+  readonly onClickNavigationItem = output<void>();
+  // Some exported volume names end in a newline; the links and the volume page use the trimmed name.
+  readonly volumes = inject(StatisticsService).getStatistics().Volumes.map(x => x.Name.trim());
 }

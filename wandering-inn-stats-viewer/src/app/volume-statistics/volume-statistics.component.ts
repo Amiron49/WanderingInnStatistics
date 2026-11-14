@@ -1,73 +1,44 @@
-import {Component, ElementRef, OnInit, ViewChild, ChangeDetectionStrategy} from '@angular/core';
-import {AbstractWanderingInnStatistic, VolumeStatistic, WanderingInnStatistic} from "../wandering-inn-statistic";
-import {bar, ChartOptions, line} from "billboard.js";
-import {OtherBooksComparision, StandardStatisticInterpretation, StatisticsService} from "../statistics.service";
-import {MatTabGroup} from "@angular/material/tabs";
-import {MatCheckbox, MatCheckboxChange} from "@angular/material/checkbox";
-import {ActivatedRoute, Router} from "@angular/router";
+import {ChangeDetectionStrategy, Component, computed, inject, input, signal} from '@angular/core';
+import {VolumeStatistic} from "../wandering-inn-statistic";
+import {bar, ChartOptions} from "billboard.js";
+import {StandardStatisticInterpretation, StatisticsService} from "../statistics.service";
+import {MatTab, MatTabGroup} from "@angular/material/tabs";
+import {MatCheckbox} from "@angular/material/checkbox";
+import {ChonkerNumberInfoComponent} from '../main-statistics/chonker-number-info/chonker-number-info.component';
+import {SmartChartComponent} from '../main-statistics/smart-chart/smart-chart.component';
+import {VolumeCharacterOccurenceRadarComponent} from '../main-statistics/volume-character-occurence-radar/volume-character-occurence-radar.component';
+import {StandardStatisticsViewComponent} from '../standard-statistics-view/standard-statistics-view.component';
 
 @Component({
-    selector: 'app-volume-statistics',
-    templateUrl: './volume-statistics.component.html',
-    styleUrls: ['./volume-statistics.component.scss'],
-    changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+  selector: 'app-volume-statistics',
+  templateUrl: './volume-statistics.component.html',
+  styleUrls: ['./volume-statistics.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [ChonkerNumberInfoComponent, SmartChartComponent, MatCheckbox, MatTabGroup, MatTab, VolumeCharacterOccurenceRadarComponent, StandardStatisticsViewComponent]
 })
-export class VolumeStatisticsComponent implements OnInit {
+export class VolumeStatisticsComponent {
+  private readonly statisticsService = inject(StatisticsService);
 
-  chapters?: number;
-  statistics?: VolumeStatistic
-  public wordCountPerChapterChartOptionsCached?: ChartOptions;
+  /** Route parameter <c>:volume</c>, the volume's name. */
+  readonly volume = input.required<string>();
 
-  standardStatistics?: StandardStatisticInterpretation;
+  readonly statistics = computed(() =>
+    this.statisticsService.getStatistics().Volumes.find(x => x.Name.trim() == this.volume().trim()));
+  readonly standardStatistics = computed(() => {
+    const statistics = this.statistics();
+    return statistics ? new StandardStatisticInterpretation(statistics, this.statisticsService) : undefined;
+  });
+  readonly wordCountPerChapterChartOptions = computed(() => {
+    const statistics = this.statistics();
+    return statistics ? VolumeStatisticsComponent.createWordCountPerChapterChartOptions(statistics) : undefined;
+  });
 
-  @ViewChild("shittyTabGroup")
-  shittyTabGroup: MatTabGroup = null!;
+  readonly filterErin = signal(false);
+  readonly weighted = signal(false);
+  /** The radar tabs: all characters, without Erin, weighted. The tab headers are hidden; the checkboxes pick the tab. */
+  readonly selectedTab = computed(() => this.weighted() ? 2 : this.filterErin() ? 1 : 0);
 
-  @ViewChild("filterErin")
-  filterErin: MatCheckbox = null!;
-
-  @ViewChild("weightedMode")
-  weightedMode: MatCheckbox = null!;
-
-  @ViewChild("shittyTabGroupContainer")
-  shittyTabGroupContainer: ElementRef = null!;
-  doneLoading: boolean = false;
-
-  constructor(
-    private route: ActivatedRoute,
-    private statisticsService: StatisticsService
-  ) {
-
-  }
-
-  ngOnInit(): void {
-    this.route.params.subscribe(params => {
-      let statistics1 = this.statisticsService.getStatistics();
-      this.statistics = statistics1.Volumes.find((x: VolumeStatistic) => x.Name == params["volume"]);
-      this.chapters = this.statistics!.Chapters.length;
-      this.standardStatistics = new StandardStatisticInterpretation(this.statistics!, this.statisticsService);
-
-      this.wordCountPerChapterChartOptionsCached = this.wordCountPerChapterChartOptions(this.statistics!);
-      this.doneLoading = true;
-    })
-  }
-
-  handleWeightedChange($event: MatCheckboxChange) {
-    if ($event.checked)
-      this.shittyTabGroup.selectedIndex = 2;
-    else
-      this.shittyTabGroup.selectedIndex = this.filterErin.checked ? 1 : 0;
-  }
-
-  handleErinFilterChange($event: MatCheckboxChange) {
-    if (this.weightedMode.checked)
-      return;
-
-    this.shittyTabGroup.selectedIndex = $event.checked ? 1 : 0;
-  }
-
-  private wordCountPerChapterChartOptions(volumeStats: VolumeStatistic): ChartOptions {
+  private static createWordCountPerChapterChartOptions(volumeStats: VolumeStatistic): ChartOptions {
     let data = [
       ["x", ...volumeStats.Chapters.map(x => x.Chapter.Name)],
       ["Words", ...volumeStats.Chapters.map(x => x.Words)]

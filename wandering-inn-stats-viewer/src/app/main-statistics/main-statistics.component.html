@@ -15,24 +15,18 @@
 <h2>To put this into context</h2>
 
 <div class="row breakout">
-  @if (wordCountVsOthersChartOptionsCached) {
-    <app-smart-chart [options]="wordCountVsOthersChartOptionsCached"
-    [minWidth]="900"></app-smart-chart>
-  }
+  <app-smart-chart [options]="wordCountVsOthersChartOptions" [minWidth]="900"></app-smart-chart>
 </div>
 <div class="row">
   <app-chonker-number-info text="Overall Words per Day" [amount]="statistics.WritingVelocity.words.perDay()"
   subText="and this is skewed LOWER by the earlier volumes"></app-chonker-number-info>
 
-  <app-chonker-number-info text="Latest Volume Words per Day" [amount]="this.lastVolume.WritingVelocity.words.perDay()"
+  <app-chonker-number-info text="Latest Volume Words per Day" [amount]="lastVolume.WritingVelocity.words.perDay()"
   subText="Bruh."></app-chonker-number-info>
 </div>
 <h2>Welcome to the Pirateaba Bullettrain</h2>
 <div class="row">
-  @if (wordCountPerVolumeChartOptionsCached) {
-    <app-smart-chart [options]="wordCountPerVolumeChartOptionsCached"
-    [minWidth]="900"></app-smart-chart>
-  }
+  <app-smart-chart [options]="wordCountPerVolumeChartOptions" [minWidth]="900"></app-smart-chart>
 </div>
 <div class="row">
   <app-smart-chart [options]="standardStatistics.totalCharacterMentionsChartOptions"
@@ -41,13 +35,13 @@
 
 <h2>Top 5 Characters, Per Volume</h2>
 
-<mat-checkbox #filterErin (change)="handleErinFilterChange($event)">Remove Erin @if (filterErin.checked) {
+<mat-checkbox [checked]="filterErin()" (change)="filterErin.set($event.checked)">Remove Erin @if (filterErin()) {
   <span>(You Monster)</span>
 }</mat-checkbox>
-<mat-checkbox #weightedMode (change)="handleWeightedChange($event)">Weighted View</mat-checkbox>
+<mat-checkbox [checked]="weighted()" (change)="weighted.set($event.checked)">Weighted View</mat-checkbox>
 
-<div #shittyTabGroupContainer class="row" style="flex-wrap: wrap">
-  <mat-tab-group #shittyTabGroup style="width: 100%" mat-align-tabs="center">
+<div class="row" style="flex-wrap: wrap">
+  <mat-tab-group [selectedIndex]="selectedTab()" style="width: 100%" mat-align-tabs="center">
     <mat-tab class="row">
       <div class="row breakout-light" style="flex-wrap: wrap">
         @for (volume of statistics.Volumes; track volume) {
@@ -67,7 +61,7 @@
     <mat-tab class="row" >
       <div class="row breakout-light" style="flex-wrap: wrap">
         @for (volume of statistics.Volumes; track volume) {
-          <app-volume-character-occurence-radar [volumeStatistic]="volume" [filterErin]="filterErin.checked"
+          <app-volume-character-occurence-radar [volumeStatistic]="volume" [filterErin]="filterErin()"
             [weighted]="true"
           style="flex-grow: 1; "></app-volume-character-occurence-radar>
         }

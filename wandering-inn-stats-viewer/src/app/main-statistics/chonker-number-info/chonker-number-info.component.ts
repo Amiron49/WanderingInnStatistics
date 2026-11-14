@@ -1,25 +1,16 @@
-import {Component, Input, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import {ChangeDetectionStrategy, Component, input} from '@angular/core';
+import {PrettyPrintNumberPipe} from './pretty-print-number.pipe';
 
+/** A big number with a caption. */
 @Component({
-    selector: 'app-chonker-number-info',
-    templateUrl: './chonker-number-info.component.html',
-    styleUrls: ['./chonker-number-info.component.scss'],
-    changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+  selector: 'app-chonker-number-info',
+  templateUrl: './chonker-number-info.component.html',
+  styleUrls: ['./chonker-number-info.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PrettyPrintNumberPipe]
 })
-export class ChonkerNumberInfoComponent implements OnInit {
-
-  @Input()
-  public amount!: number;
-  @Input()
-  public text: string | null = null;
-
-  @Input()
-  public subText: string | null = null;
-
-  constructor() { }
-
-  ngOnInit(): void {
-  }
-
+export class ChonkerNumberInfoComponent {
+  readonly amount = input.required<number>();
+  readonly text = input<string | null>(null);
+  readonly subText = input<string | null>(null);
 }

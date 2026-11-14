@@ -1,3 +1,4 @@
-@if (chartOptions) {
-  <app-smart-chart [options]="chartOptions"></app-smart-chart>
+@if (showLabel()) {
+  <h3 class="label">{{volumeStatistic().Name.trim()}}</h3>
 }
+<app-smart-chart [options]="chartOptions()"></app-smart-chart>

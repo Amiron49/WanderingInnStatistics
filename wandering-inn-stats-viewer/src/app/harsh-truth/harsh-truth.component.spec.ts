@@ -8,8 +8,8 @@ describe('HarshTruthComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ HarshTruthComponent ]
-    })
+    imports: [HarshTruthComponent]
+})
     .compileComponents();
   });
 

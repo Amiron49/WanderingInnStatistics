@@ -1,5 +1,5 @@
 TODO weighted mentions against max mantions of Volume
-@if (genericEntityStatistic) {
+@if (genericEntityStatistic(); as genericEntityStatistic) {
   <h1>{{genericEntityStatistic.name}}</h1>
   <ul>
     <li>Total mentions: {{genericEntityStatistic.mentions}}</li>
@@ -20,16 +20,6 @@ TODO weighted mentions against max mantions of Volume
     </ng-container>
     <tr mat-header-row *matHeaderRowDef="shownColumns"></tr>
     <tr mat-row *matRowDef="let row; columns: shownColumns"></tr>
-    <!--    <tr>-->
-    <!--      <th>Volume</th>-->
-    <!--      <th>Chapter</th>-->
-    <!--      <th>Link</th>-->
-  <!--    </tr>-->
-  <!--    <tr *ngFor="let chapter of genericEntityStatistic.allChaptersContaining">-->
-  <!--      <td>{{chapter.Chapter.Volume}}</td>-->
-  <!--      <td>{{chapter.Chapter.Name}}</td>-->
-  <!--      <td><a [href]="chapter.Chapter.Url" target="_blank">(open chapter)</a></td>-->
-<!--    </tr>-->
 </table>
 }
 

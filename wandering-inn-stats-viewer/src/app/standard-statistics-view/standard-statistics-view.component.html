@@ -1,4 +1,4 @@
-@if (standardStatistics != null) {
+@if (standardStatistics(); as standardStatistics) {
   <h2>Classes</h2>
   <div class="row">
     <app-chonker-number-info text="Classes" [amount]="standardStatistics.uniqueClasses"></app-chonker-number-info>
@@ -7,10 +7,8 @@
     subText="Classes that were only mentioned once"></app-chonker-number-info>
   </div>
   <div class="row">
-    @if (standardStatistics) {
-      <app-smart-chart [options]="standardStatistics.topClassesChartOptions"
-      [minWidth]="900"></app-smart-chart>
-    }
+    <app-smart-chart [options]="standardStatistics.topClassesChartOptions"
+    [minWidth]="900"></app-smart-chart>
   </div>
   <h2>Skills</h2>
   <div class="row">
@@ -20,10 +18,8 @@
     subText="Skills that were only mentioned once"></app-chonker-number-info>
   </div>
   <div class="row">
-    @if (standardStatistics) {
-      <app-smart-chart [options]="standardStatistics.topSkillsChartOptions"
-      [minWidth]="900"></app-smart-chart>
-    }
+    <app-smart-chart [options]="standardStatistics.topSkillsChartOptions"
+    [minWidth]="900"></app-smart-chart>
   </div>
   <h2>Spells</h2>
   <div class="row">
@@ -33,10 +29,8 @@
     subText="Spells that were only mentioned once"></app-chonker-number-info>
   </div>
   <div class="row">
-    @if (standardStatistics) {
-      <app-smart-chart [options]="standardStatistics.topSpellsChartOptions"
-      [minWidth]="900"></app-smart-chart>
-    }
+    <app-smart-chart [options]="standardStatistics.topSpellsChartOptions"
+    [minWidth]="900"></app-smart-chart>
   </div>
   <h2>Comments Statistics</h2>
   @if (standardStatistics.mostCommentedOnChapter && standardStatistics.leastCommentedOnChapter && standardStatistics.topMostCommentedOnChapterChartOptions) {
@@ -45,18 +39,14 @@
       <app-chonker-number-info [text]="standardStatistics.leastCommentedOnChapter.Name" [amount]="standardStatistics.leastCommentedOnChapter.Comments"></app-chonker-number-info>
     </div>
     <div class="row">
-      @if (standardStatistics) {
-        <app-smart-chart [options]="standardStatistics.topMostCommentedOnChapterChartOptions"
-        [minWidth]="900"></app-smart-chart>
-      }
+      <app-smart-chart [options]="standardStatistics.topMostCommentedOnChapterChartOptions"
+      [minWidth]="900"></app-smart-chart>
     </div>
   }
   <h2>Unknown brackets</h2>
   <div class="row">
-    @if (standardStatistics) {
-      <app-smart-chart [options]="standardStatistics.topUnknownsChartOptions"
-      [minWidth]="900"></app-smart-chart>
-    }
+    <app-smart-chart [options]="standardStatistics.topUnknownsChartOptions"
+    [minWidth]="900"></app-smart-chart>
   </div>
 }
 

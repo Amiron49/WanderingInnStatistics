@@ -1,37 +1,41 @@
-import {Component, Input, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import {ChangeDetectionStrategy, Component, computed, inject, input} from '@angular/core';
 import {GenericMentionsStatistic} from "./genericMentionsStatistic";
-import {ActivatedRoute} from "@angular/router";
 import {StatisticsService} from "../statistics.service";
 import {AbstractWanderingInnStatistic} from "../wandering-inn-statistic";
+import {SmartChartComponent} from '../main-statistics/smart-chart/smart-chart.component';
+import {
+  MatCell,
+  MatColumnDef,
+  MatHeaderCell,
+  MatHeaderCellDef,
+  MatHeaderRow,
+  MatHeaderRowDef,
+  MatRow,
+  MatRowDef,
+  MatTable
+} from '@angular/material/table';
+import {CdkCellDef} from '@angular/cdk/table';
 
+/** Mentions of one entity per volume, and every chapter that mentions it. */
 @Component({
-    selector: 'app-generic-entity-mentions-statistics-view',
-    templateUrl: './generic-entity-mentions-statistics-view.component.html',
-    styleUrls: ['./generic-entity-mentions-statistics-view.component.scss'],
-    changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+  selector: 'app-generic-entity-mentions-statistics-view',
+  templateUrl: './generic-entity-mentions-statistics-view.component.html',
+  styleUrls: ['./generic-entity-mentions-statistics-view.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [SmartChartComponent, MatTable, MatColumnDef, MatHeaderCellDef, MatHeaderCell, CdkCellDef, MatCell, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow]
 })
-export class GenericEntityMentionsStatisticsViewComponent implements OnInit {
-  @Input()
-  genericEntityStatistic?: GenericMentionsStatistic
-  shownColumns = ["Volume", "Chapter"];
+export class GenericEntityMentionsStatisticsViewComponent {
+  private readonly statisticsService = inject(StatisticsService);
 
-  constructor(
-    private route: ActivatedRoute,
-    private statisticsService: StatisticsService
-  ) {
+  /** Route parameters <c>:type</c> and <c>:key</c>. */
+  readonly type = input.required<EntityType>();
+  readonly key = input.required<string>();
 
-  }
+  readonly shownColumns = ["Volume", "Chapter"];
 
-  ngOnInit(): void {
-    this.route.params.subscribe(params => {
-      let type = params["type"];
-      let key = params["key"];
-      let locator = GenericEntityMentionsStatisticsViewComponent.createLocator(type)
-
-      this.genericEntityStatistic = new GenericMentionsStatistic(this.statisticsService.getStatistics(), key, locator);
-    })
-  }
+  readonly genericEntityStatistic = computed(() =>
+    new GenericMentionsStatistic(this.statisticsService.getStatistics(), this.key(),
+      GenericEntityMentionsStatisticsViewComponent.createLocator(this.type())));
 
   public static createLocator(entityType: EntityType): (statistic: AbstractWanderingInnStatistic) => { [key: string]: number } {
     switch (entityType) {

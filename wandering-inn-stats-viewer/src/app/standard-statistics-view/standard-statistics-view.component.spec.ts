@@ -8,8 +8,8 @@ describe('StandardStatisticsViewComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ StandardStatisticsViewComponent ]
-    })
+    imports: [StandardStatisticsViewComponent]
+})
     .compileComponents();
   });
 
