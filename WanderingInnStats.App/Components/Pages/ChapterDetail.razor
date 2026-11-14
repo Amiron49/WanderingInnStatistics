@@ -1,0 +1,292 @@
+@page "/chapters/{Id:int}"
+@using System.Net
+@using System.Text.RegularExpressions
+@using WanderingInnStats.Parsing
+@implements IDisposable
+@inject ChapterService ChapterService
+@inject ChapterPreviewService PreviewService
+@inject JobRunner Jobs
+
+<p><a href="chapters">← Chapters</a></p>
+
+@if (_chapter == null)
+{
+    <p>@(_notFound ? "Chapter not found." : "Loading…")</p>
+    return;
+}
+
+<h1>@_chapter.Name</h1>
+<p class="text-muted">
+    @_chapter.Volume.Trim() · #@_chapter.TocOrder ·
+    <a href="@_chapter.Url" target="_blank">@_chapter.Url</a>
+</p>
+
+<div class="row mb-3 small">
+    <div class="col-auto">Posted: <strong>@(_chapter.IsDownloaded ? _chapter.Date.ToLocalTime().ToString("g") : "–")</strong></div>
+    <div class="col-auto">Comments: <strong>@_chapter.Comments</strong></div>
+    <div class="col-auto">Downloaded: <strong>@(_chapter.DownloadedAt?.ToLocalTime().ToString("g") ?? "never")</strong></div>
+    <div class="col-auto">Raw length: <strong>@((_chapter.RawText?.Length ?? 0).ToString("N0"))</strong> chars</div>
+</div>
+
+@if (_chapter.LastError != null)
+{
+    <div class="alert alert-danger">
+        <strong>Last download failed.</strong>
+        <pre class="stack-trace mt-2 mb-0">@_chapter.LastError</pre>
+    </div>
+}
+@if (_chapter.OverrideStale)
+{
+    <div class="alert alert-warning">The raw text changed after the override was written. Check whether the override is still needed.</div>
+}
+
+<div class="d-flex gap-2 mb-3">
+    <button class="btn btn-outline-primary" disabled="@Jobs.IsRunning" @onclick="Redownload">@(_chapter.IsDownloaded ? "Re-download" : "Download")</button>
+    <button class="btn btn-outline-secondary" @onclick="ToggleExcluded">@(_chapter.Excluded ? "Include in statistics" : "Exclude from statistics")</button>
+</div>
+
+<ul class="nav nav-tabs mb-2">
+    @foreach (var tab in new[] { "Raw", "Fixed", "Override", "Stats preview" })
+    {
+        <li class="nav-item">
+            <button class="nav-link @(_tab == tab ? "active" : "")" @onclick="() => SelectTab(tab)">
+                @tab
+                @if (tab == "Fixed" && _fixed != null && (_fixed.IsDirty || _fixed.Error != null))
+                {
+                    <span class="badge bg-danger ms-1">!</span>
+                }
+                @if (tab == "Override" && _chapter.OverrideText != null)
+                {
+                    <span class="badge bg-info text-dark ms-1">set</span>
+                }
+            </button>
+        </li>
+    }
+</ul>
+
+@switch (_tab)
+{
+    case "Raw":
+        @if (_chapter.RawText == null)
+        {
+            <p class="text-muted">Not downloaded.</p>
+        }
+        else
+        {
+            <div class="chapter-text">@Highlight(_chapter.RawText)</div>
+        }
+        break;
+
+    case "Fixed":
+        <p class="small text-muted">
+            The effective text (@(_chapter.OverrideText != null ? "override" : "raw")) after <code>ChapterFixing.Fixup</code>.
+            Suspicious phrases are highlighted.
+        </p>
+        @if (_fixed?.Error != null)
+        {
+            <div class="alert alert-danger">Fixup threw: @_fixed.Error</div>
+        }
+        else if (_fixed?.Text != null)
+        {
+            @if (_fixed.IsDirty)
+            {
+                <div class="alert alert-warning">The chapter is still dirty after fixing. The statistics run will fail on it (unless it's in Volume 8). Write an override.</div>
+            }
+            <div class="chapter-text">@Highlight(_fixed.Text)</div>
+        }
+        break;
+
+    case "Override":
+        <p class="small text-muted">If set, the override replaces the raw text for fixing and statistics (like the old <code>ManualOverrides</code> files).</p>
+        <div class="d-flex gap-2 mb-2">
+            <button class="btn btn-primary btn-sm" @onclick="SaveOverride">Save override</button>
+            <button class="btn btn-outline-secondary btn-sm" @onclick="CopyRaw">Copy raw into editor</button>
+            <button class="btn btn-outline-secondary btn-sm" @onclick="CopyFixed" disabled="@(_fixed?.Text == null)">Copy fixed into editor</button>
+            <button class="btn btn-outline-danger btn-sm" @onclick="ClearOverride" disabled="@(_chapter.OverrideText == null)">Clear override</button>
+            @if (_saved != null)
+            {
+                <span class="small text-success align-self-center">@_saved</span>
+            }
+        </div>
+        <textarea class="form-control override-editor" @bind="_overrideDraft"></textarea>
+        break;
+
+    case "Stats preview":
+        @if (_previewing)
+        {
+            <p><span class="spinner-border spinner-border-sm"></span> Parsing…</p>
+        }
+        else if (_previewError != null)
+        {
+            <div class="alert alert-danger">@_previewError</div>
+        }
+        else if (_preview != null)
+        {
+            @if (_preview.Approximate)
+            {
+                <div class="alert alert-info small">
+                    Approximate: no statistics run has happened in this session, so these definitions come from the wiki characters plus a first pass over this chapter only.
+                    Run statistics generation once for exact results.
+                </div>
+            }
+            @if (_preview.FixupError != null)
+            {
+                <div class="alert alert-warning small">Fixup failed (@_preview.FixupError). Parsed the unfixed text.</div>
+            }
+            <p>Words: <strong>@_preview.Statistics.Words.ToString("N0")</strong> · Characters: <strong>@_preview.Statistics.Characters.ToString("N0")</strong></p>
+            <div class="row g-3">
+                <StatBlock Title="Character mentions" Items="ToRows(_preview.Statistics.CharacterMentions)" />
+                <StatBlock Title="Classes" Items="ToRows(_preview.Statistics.Classes)" />
+                <StatBlock Title="Skills" Items="ToRows(_preview.Statistics.SkillsSkills)" />
+                <StatBlock Title="Spells" Items="ToRows(_preview.Statistics.SkillsSpells)" />
+                <StatBlock Title="Class obtains" Items="ToRows(_preview.Statistics.ClassObtains)" />
+                <StatBlock Title="Class level ups" Items="ToRows(_preview.Statistics.ClassLevelUps)" />
+                <StatBlock Title="Skill obtains" Items="ToRows(_preview.Statistics.SkillObtains)" />
+                <StatBlock Title="Spell obtains" Items="ToRows(_preview.Statistics.SpellObtains)" />
+                <StatBlock Title="Unknown brackets" Items="ToRows(_preview.Statistics.UnknownBrackets)" />
+                <StatBlock Title="Cancelled brackets" Items="ToRows(_preview.Statistics.CancelledBrackets)" />
+            </div>
+        }
+        break;
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private StoredChapter? _chapter;
+    private bool _notFound;
+    private string _tab = "Raw";
+    private FixedTextResult? _fixed;
+    private string? _overrideDraft;
+    private string? _saved;
+    private ChapterPreview? _preview;
+    private string? _previewError;
+    private bool _previewing;
+    private bool _wasRunning;
+
+    private static readonly Regex SuspiciousRegex = new(
+        string.Join("|", ChapterFixing.SuspiciousSentences.Select(Regex.Escape)),
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Jobs.Changed -= OnJobChanged;
+        Jobs.Changed += OnJobChanged;
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _chapter = await ChapterService.GetAsync(Id);
+        _notFound = _chapter == null;
+        if (_chapter == null) return;
+
+        _overrideDraft = _chapter.OverrideText;
+        _fixed = _chapter.IsDownloaded || _chapter.OverrideText != null
+            ? await Task.Run(() => ChapterPreviewService.GetFixedText(_chapter.ToChapter()))
+            : null;
+        _preview = null;
+        if (_tab == "Stats preview")
+            await RunPreview();
+    }
+
+    private async Task SelectTab(string tab)
+    {
+        _tab = tab;
+        _saved = null;
+        if (tab == "Stats preview" && _preview == null)
+            await RunPreview();
+    }
+
+    private async Task RunPreview()
+    {
+        if (_chapter == null || (!_chapter.IsDownloaded && _chapter.OverrideText == null))
+        {
+            _previewError = "Nothing to parse; download the chapter first.";
+            return;
+        }
+
+        _previewing = true;
+        _previewError = null;
+        StateHasChanged();
+        try
+        {
+            _preview = await Task.Run(() => PreviewService.PreviewAsync(Id));
+        }
+        catch (Exception e)
+        {
+            _previewError = e.Message;
+        }
+        finally
+        {
+            _previewing = false;
+        }
+    }
+
+    private void Redownload()
+    {
+        if (_chapter == null) return;
+        var chapterRef = new ChapterRef(_chapter.Volume, _chapter.Name, _chapter.Url);
+        Jobs.TryStart($"Download {_chapter.Name}", async ct =>
+        {
+            Jobs.Report(chapterRef.Name);
+            var result = await ChapterService.DownloadAsync(new[] { chapterRef }, null, ct);
+            if (result.Failed > 0)
+                foreach (var (name, error) in await ChapterService.GetErrorsAsync(new[] { chapterRef.Url }, ct))
+                    Jobs.AddNote($"Failed: {name}", error);
+            return result.Failed > 0 ? "failed – see the error on the chapter page" : result.OverridesMarkedStale > 0 ? "downloaded – override now stale" : "downloaded";
+        });
+    }
+
+    private void OnJobChanged()
+    {
+        var finished = _wasRunning && !Jobs.IsRunning;
+        _wasRunning = Jobs.IsRunning;
+        if (finished)
+            InvokeAsync(async () =>
+            {
+                await Load();
+                StateHasChanged();
+            });
+    }
+
+    private async Task ToggleExcluded()
+    {
+        if (_chapter == null) return;
+        await ChapterService.SetExcludedAsync(Id, !_chapter.Excluded);
+        await Load();
+    }
+
+    private async Task SaveOverride()
+    {
+        await ChapterService.SetOverrideAsync(Id, _overrideDraft);
+        await Load();
+        _saved = _chapter?.OverrideText == null ? "Override cleared (it was empty)" : "Saved";
+    }
+
+    private async Task ClearOverride()
+    {
+        await ChapterService.SetOverrideAsync(Id, null);
+        await Load();
+        _saved = "Override cleared";
+    }
+
+    private void CopyRaw() => _overrideDraft = _chapter?.RawText;
+    private void CopyFixed() => _overrideDraft = _fixed?.Text;
+
+    private static MarkupString Highlight(string text)
+    {
+        var encoded = WebUtility.HtmlEncode(text);
+        // Suspicious phrases contain no HTML-special characters, so matching on the encoded text is safe.
+        return new MarkupString(SuspiciousRegex.Replace(encoded, m => $"<mark>{m.Value}</mark>"));
+    }
+
+    private static List<(string Key, int Count)> ToRows<T>(Dictionary<T, int> dictionary) where T : notnull =>
+        dictionary
+            .Select(x => (Key: x.Key is IJsonMe json ? json.JsonEquivalent : x.Key.ToString() ?? "", Count: x.Value))
+            .OrderByDescending(x => x.Count)
+            .ThenBy(x => x.Key)
+            .ToList();
+
+    public void Dispose() => Jobs.Changed -= OnJobChanged;
+}

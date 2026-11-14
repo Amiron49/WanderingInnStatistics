@@ -1,0 +1,158 @@
+@page "/wiki"
+@using Microsoft.EntityFrameworkCore
+@implements IDisposable
+@inject WikiService WikiService
+@inject WorkspaceDbFactory DbFactory
+@inject JobRunner Jobs
+
+<h1>Wiki</h1>
+
+<p>
+    <strong>@_characters.Count</strong> characters stored (@_characters.Count(x => x.Excluded) excluded) ·
+    last download: @(_characters.Count == 0 ? "never" : _characters.Max(x => x.DownloadedAt).ToLocalTime().ToString("g"))
+</p>
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <button class="btn btn-primary" disabled="@Jobs.IsRunning" @onclick="() => Download(false)">Download / refresh</button>
+    <button class="btn btn-outline-danger" disabled="@Jobs.IsRunning" @onclick="() => Download(true)"
+            title="Deletes W:\temp\wanderingInn\cache.sqlite so every page is fetched again">Force refresh (clear HTML cache)</button>
+    <button class="btn btn-outline-secondary" disabled="@Jobs.IsRunning" @onclick="SanityCheck">Run sanity check</button>
+</div>
+<p class="small text-muted">
+    A normal refresh re-parses every character page, but pages already in the scrapper's HTML cache
+    (<code>@WorkspaceOptions.ScrapperWikiCacheFile</code>) aren't fetched again, so only new pages hit the network.
+    Use force refresh to pick up wiki edits.
+</p>
+
+@if (_downloadJobId is { } wikiJobId && Jobs.Get(wikiJobId) is { State: JobState.Failed, Exception: { } wikiError } wikiJob)
+{
+    <div class="alert alert-danger">
+        <div class="d-flex align-items-center mb-2">
+            <strong>@wikiJob.Name failed</strong>
+            <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="() => _downloadJobId = null">Dismiss</button>
+        </div>
+        <ExceptionDetails Exception="wikiError" Context="@($"{wikiJob.Name} at {wikiJob.StartedAt:G}")" />
+    </div>
+}
+
+@if (_failures is { Count: > 0 })
+{
+    <div class="alert alert-warning">
+        <strong>@_failures.Count character pages failed to parse.</strong> Stored characters were replaced with the ones that did parse.
+        @foreach (var failure in _failures.Take(50))
+        {
+            <details class="small">
+                <summary><a href="@failure.Url" target="_blank">@failure.Url</a></summary>
+                <pre class="stack-trace">@failure.Error</pre>
+            </details>
+        }
+        @if (_failures.Count > 50)
+        {
+            <div class="small">…and @(_failures.Count - 50) more, all listed on the <a href="jobs">Jobs</a> page.</div>
+        }
+    </div>
+}
+
+@if (_sanity != null)
+{
+    <div class="alert @(_sanity.Ok ? "alert-success" : "alert-danger")">
+        @(_sanity.Ok ? "Sanity check OK: no character definition conflicts." : $"Sanity check failed: {_sanity.Error}")
+    </div>
+}
+
+<input class="form-control form-control-sm mb-2" style="max-width: 300px" placeholder="Search…" @bind="_search" @bind:event="oninput" />
+
+<table class="table table-sm table-hover">
+    <thead><tr><th>Name</th><th>Aliases</th><th>Species</th><th>Gender</th><th>Included</th></tr></thead>
+    <tbody>
+    <Virtualize Items="Filtered" Context="row" ItemSize="33">
+        <tr class="@(row.Stored.Excluded ? "text-muted" : "")">
+            <td><a href="@row.Stored.WikiUrl" target="_blank">@row.Stored.Name</a></td>
+            <td class="small">@string.Join(", ", row.Raw.Aliases ?? Array.Empty<string>())</td>
+            <td class="small">@row.Raw.Species</td>
+            <td class="small">@row.Raw.Gender</td>
+            <td><input type="checkbox" class="form-check-input" checked="@(!row.Stored.Excluded)" @onchange="e => SetIncluded(row.Stored, e)" /></td>
+        </tr>
+    </Virtualize>
+    </tbody>
+</table>
+
+@code {
+    private record Row(StoredCharacter Stored, Core.CharacterRaw Raw);
+
+    private List<StoredCharacter> _characters = new();
+    private List<Row> _rows = new();
+    private string _search = "";
+    private SanityCheckResult? _sanity;
+    private IReadOnlyList<WikiPageFailure>? _failures;
+    private int? _downloadJobId;
+    private bool _wasRunning;
+
+    private List<Row> Filtered => string.IsNullOrWhiteSpace(_search)
+        ? _rows
+        : _rows.Where(x => x.Stored.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                           || (x.Raw.Aliases?.Any(a => a.Contains(_search, StringComparison.OrdinalIgnoreCase)) ?? false)).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Jobs.Changed += OnJobChanged;
+        _wasRunning = Jobs.IsRunning;
+        await Reload();
+    }
+
+    private async Task Reload()
+    {
+        await using var db = DbFactory.CreateDbContext();
+        _characters = await db.Characters.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
+        _rows = _characters.Select(x => new Row(x, x.ToCharacter())).ToList();
+    }
+
+    private void OnJobChanged()
+    {
+        var finished = _wasRunning && !Jobs.IsRunning;
+        _wasRunning = Jobs.IsRunning;
+        InvokeAsync(async () =>
+        {
+            if (finished)
+                await Reload();
+            StateHasChanged();
+        });
+    }
+
+    private void Download(bool force)
+    {
+        _failures = null;
+        var started = Jobs.TryStart(force ? "Wiki force refresh" : "Wiki download", async ct =>
+        {
+            var progress = new Progress<WikiProgress>(p =>
+                Jobs.Report($"{p.Stage}: {p.Done}/{p.Total} {p.Current}", p.Total == 0 ? null : 100.0 * p.Done / p.Total));
+            var result = await WikiService.DownloadAllAsync(force, progress, ct);
+            foreach (var failure in result.Failures)
+                Jobs.AddNote($"Failed: {failure.Url}", failure.Error);
+            await InvokeAsync(() => { _failures = result.Failures; StateHasChanged(); });
+            return $"{result.Characters} characters, {result.Skipped} pages failed";
+        });
+        if (started)
+            _downloadJobId = Jobs.Current?.Id;
+    }
+
+    private void SanityCheck()
+    {
+        Jobs.TryStart("Character sanity check", async ct =>
+        {
+            var result = await WikiService.RunSanityCheckAsync(ct);
+            await InvokeAsync(() => { _sanity = result; StateHasChanged(); });
+            return result.Ok ? "OK" : "conflicts found";
+        });
+    }
+
+    private async Task SetIncluded(StoredCharacter character, ChangeEventArgs e)
+    {
+        var excluded = e.Value is not true;
+        await WikiService.SetExcludedAsync(character.WikiUrl, excluded);
+        character.Excluded = excluded;
+        _sanity = null;
+    }
+
+    public void Dispose() => Jobs.Changed -= OnJobChanged;
+}

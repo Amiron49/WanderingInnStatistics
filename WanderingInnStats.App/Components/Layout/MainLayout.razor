@@ -1,0 +1,32 @@
+@inherits LayoutComponentBase
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <JobStatusBar />
+        </div>
+
+        <article class="content px-4">
+            <ErrorBoundary @ref="_errorBoundary">
+                <ChildContent>@Body</ChildContent>
+                <ErrorContent Context="ex">
+                    <div class="alert alert-danger">
+                        <div class="d-flex align-items-center mb-2">
+                            <strong>Something broke while rendering this page.</strong>
+                            <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="() => _errorBoundary?.Recover()">Dismiss</button>
+                        </div>
+                        <ExceptionDetails Exception="ex" />
+                    </div>
+                </ErrorContent>
+            </ErrorBoundary>
+        </article>
+    </main>
+</div>
+
+@code {
+    private ErrorBoundary? _errorBoundary;
+}

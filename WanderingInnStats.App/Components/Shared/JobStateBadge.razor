@@ -1,0 +1,22 @@
+@switch (State)
+{
+    case JobState.Running:
+        <span class="badge bg-primary">Running</span>
+        break;
+    case JobState.Succeeded:
+        <span class="badge bg-success">Done</span>
+        break;
+    case JobState.Failed:
+        <span class="badge bg-danger">Failed</span>
+        break;
+    case JobState.Cancelled:
+        <span class="badge bg-warning text-dark">Cancelled</span>
+        break;
+    default:
+        <span class="badge bg-secondary">Idle</span>
+        break;
+}
+
+@code {
+    [Parameter] public JobState State { get; set; }
+}

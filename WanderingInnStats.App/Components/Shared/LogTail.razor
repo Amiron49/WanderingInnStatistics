@@ -1,0 +1,36 @@
+@implements IDisposable
+@inject LogBuffer Logs
+
+<div class="log-tail">
+    @* column-reverse: newest first keeps the view pinned to the bottom *@
+    @foreach (var line in Logs.Tail(Lines).Reverse())
+    {
+        <div class="@LevelClass(line.Level)"><span class="text-muted">@line.Timestamp.ToString("HH:mm:ss")</span> @line.Message</div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Lines { get; set; } = 200;
+
+    private DateTime _lastRender = DateTime.MinValue;
+
+    protected override void OnInitialized() => Logs.Changed += OnChanged;
+
+    private void OnChanged()
+    {
+        // The second pass logs a lot; don't re-render more than ~4 times a second.
+        if ((DateTime.Now - _lastRender).TotalMilliseconds < 250)
+            return;
+        _lastRender = DateTime.Now;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private static string LevelClass(Serilog.Events.LogEventLevel level) => level switch
+    {
+        >= Serilog.Events.LogEventLevel.Error => "text-danger",
+        Serilog.Events.LogEventLevel.Warning => "text-warning",
+        _ => ""
+    };
+
+    public void Dispose() => Logs.Changed -= OnChanged;
+}

@@ -1,0 +1,83 @@
+@page "/jobs"
+@page "/jobs/{Id:int}"
+@implements IDisposable
+@inject JobRunner Jobs
+
+<h1>Jobs</h1>
+<p class="small text-muted">Jobs started in this session, newest first. Failed jobs keep their full exception for diagnosis.</p>
+
+@if (Jobs.History.Count == 0)
+{
+    <p class="text-muted">No jobs yet.</p>
+}
+
+@foreach (var job in Jobs.History)
+{
+    var expanded = _expanded.Contains(job.Id);
+    <div class="card mb-2 @(job.State == JobState.Failed ? "border-danger" : "")">
+        <div class="card-header d-flex align-items-center gap-2" role="button" @onclick="() => Toggle(job.Id)">
+            <JobStateBadge State="job.State" />
+            <strong>@job.Name</strong>
+            <span class="small text-muted">@job.StartedAt.ToString("HH:mm:ss")@(job.Duration is { } d ? $" · {d.TotalSeconds:0.0}s" : "")</span>
+            <span class="small text-truncate">
+                @(job.State switch
+                {
+                    JobState.Failed => job.Exception?.Message,
+                    JobState.Running => job.Status,
+                    _ => job.ResultMessage
+                })
+            </span>
+            <span class="ms-auto small">@(expanded ? "▲" : "▼")</span>
+        </div>
+        @if (expanded)
+        {
+            <div class="card-body">
+                <dl class="row small mb-2">
+                    <dt class="col-sm-2">Started</dt><dd class="col-sm-10">@job.StartedAt.ToString("G")</dd>
+                    <dt class="col-sm-2">Finished</dt><dd class="col-sm-10">@(job.FinishedAt?.ToString("G") ?? "–")</dd>
+                    <dt class="col-sm-2">Last status</dt><dd class="col-sm-10">@job.Status</dd>
+                    @if (job.ResultMessage != null)
+                    {
+                        <dt class="col-sm-2">Result</dt><dd class="col-sm-10">@job.ResultMessage</dd>
+                    }
+                </dl>
+                @if (job.Exception != null)
+                {
+                    <ExceptionDetails Exception="job.Exception" Context="@($"Job: {job.Name}, started {job.StartedAt:G}, last status: {job.Status}")" />
+                }
+                @foreach (var (title, details) in job.Notes)
+                {
+                    <details class="mb-1">
+                        <summary class="small">@title</summary>
+                        <pre class="stack-trace">@details</pre>
+                    </details>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private readonly HashSet<int> _expanded = new();
+
+    protected override void OnInitialized() => Jobs.Changed += OnChanged;
+
+    protected override void OnParametersSet()
+    {
+        if (Id is { } id)
+            _expanded.Add(id);
+        else if (Jobs.History.FirstOrDefault() is { State: JobState.Failed } latest)
+            _expanded.Add(latest.Id);
+    }
+
+    private void Toggle(int id)
+    {
+        if (!_expanded.Remove(id))
+            _expanded.Add(id);
+    }
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Jobs.Changed -= OnChanged;
+}

@@ -1,0 +1,27 @@
+<div class="col-md-6 col-xl-4">
+    <div class="card h-100">
+        <div class="card-header small"><strong>@Title</strong> <span class="text-muted">(@Items.Count distinct, @Items.Sum(x => x.Count) total)</span></div>
+        @if (Items.Count == 0)
+        {
+            <div class="card-body small text-muted">None</div>
+        }
+        else
+        {
+            <div class="stat-table">
+                <table class="table table-sm table-striped mb-0 small">
+                    <tbody>
+                    @foreach (var (key, count) in Items)
+                    {
+                        <tr><td>@key</td><td class="text-end">@count</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public List<(string Key, int Count)> Items { get; set; } = new();
+}

@@ -4,26 +4,51 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using WanderingInnStats.Core;
 
-namespace WanderingInnStats.Cli
+namespace WanderingInnStats.Pipeline
 {
     public static class ChapterFixing
     {
+        // ReSharper disable StringLiteralTypo
+        public static readonly IReadOnlyList<string> SuspiciousSentences = new[]
+        {
+            "After Chapter Thoughts",
+            "Author Note",
+            "Patreon",
+            "DeviantArt",
+            "Deviant-Art",
+            "Deviant Art",
+            "ko-fi",
+            "Next Chapter"
+        };
+        // ReSharper restore StringLiteralTypo
+
+        /// <summary>
+        /// Runs <see cref="Fixup"/> on a copy of a single chapter and returns the fixed text.
+        /// Throws whatever <see cref="Fixup"/> throws (e.g. "lost too much").
+        /// </summary>
+        public static string GetFixedText(Chapter chapter)
+        {
+            var copy = new Chapter
+            {
+                Volume = chapter.Volume,
+                Url = chapter.Url,
+                Name = chapter.Name,
+                Date = chapter.Date,
+                Text = chapter.Text,
+                Comments = chapter.Comments
+            };
+            Fixup(new List<Chapter> { copy });
+            return copy.Text;
+        }
+
+        public static bool IsDirty(Chapter chapter) => FindDirtyChapters(new List<Chapter> { chapter }).Count > 0;
+
         public static List<Chapter> FindDirtyChapters(List<Chapter> chapters)
         {
             // ReSharper disable IdentifierTypo
             // ReSharper disable StringLiteralTypo
 
-            var suspiciousSentences = new string[]
-            {
-                "After Chapter Thoughts",
-                "Author Note",
-                "Patreon",
-                "DeviantArt",
-                "Deviant-Art",
-                "Deviant Art",
-                "ko-fi",
-                "Next Chapter"
-            };
+            var suspiciousSentences = SuspiciousSentences;
 
             return chapters.Where(target =>
             {

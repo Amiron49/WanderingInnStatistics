@@ -1,0 +1,46 @@
+@implements IDisposable
+@inject JobRunner Jobs
+
+<div class="job-status d-flex align-items-center gap-2 w-100">
+    @switch (Jobs.State)
+    {
+        case JobState.Idle:
+            <span class="text-muted small">No job running</span>
+            break;
+        case JobState.Running:
+            <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
+            <strong class="small">@Jobs.Name</strong>
+            <span class="small text-truncate">@Jobs.Status</span>
+            @if (Jobs.Percent is { } percent)
+            {
+                <div class="progress flex-grow-1" style="height: 0.6rem; max-width: 300px;">
+                    <div class="progress-bar" style="width: @(percent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                </div>
+            }
+            <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="Jobs.Cancel">Cancel</button>
+            break;
+        case JobState.Succeeded:
+            <span class="badge bg-success">Done</span>
+            <span class="small text-truncate">@Jobs.Name: @(Jobs.ResultMessage ?? "finished")</span>
+            @if (Jobs.Current?.Notes.Count > 0)
+            {
+                <a class="btn btn-sm btn-link ms-auto text-nowrap" href="jobs/@Jobs.Current.Id">Details</a>
+            }
+            break;
+        case JobState.Failed:
+            <span class="badge bg-danger">Failed</span>
+            <span class="small text-danger text-truncate">@Jobs.Name: <code class="text-danger">@Jobs.Exception?.GetType().Name</code> @Jobs.Error</span>
+            <a class="btn btn-sm btn-outline-danger ms-auto text-nowrap" href="jobs/@Jobs.Current?.Id">Details</a>
+            break;
+        case JobState.Cancelled:
+            <span class="badge bg-warning text-dark">Cancelled</span>
+            <span class="small">@Jobs.Name</span>
+            break;
+    }
+</div>
+
+@code {
+    protected override void OnInitialized() => Jobs.Changed += OnChanged;
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Jobs.Changed -= OnChanged;
+}

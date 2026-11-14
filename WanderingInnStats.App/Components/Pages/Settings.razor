@@ -1,0 +1,106 @@
+@page "/settings"
+@inject WorkspaceOptions Options
+@inject LegacyImporter Importer
+@inject JobRunner Jobs
+
+<h1>Settings</h1>
+
+<div class="card mb-4" style="max-width: 800px">
+    <div class="card-body">
+        <div class="mb-3">
+            <label class="form-label">Workspace root</label>
+            <input class="form-control" @bind="_root" />
+            <div class="form-text">Holds <code>workspace.sqlite</code>, <code>log.log</code> and the legacy caches.
+                The wiki HTML cache is always <code>@WorkspaceOptions.ScrapperWikiCacheFile</code> (hard-coded in the scrapping assembly).</div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Export directory</label>
+            <input class="form-control" @bind="_export" placeholder="@Options.Root" />
+            <div class="form-text">Where <code>statistics-frontend.json</code> and <code>definitions-frontend.json</code> are written. Leave empty to use the workspace root.</div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Viewer data folder</label>
+            <input class="form-control" @bind="_viewer" placeholder="W:\projects\WanderingInnStatistics\wandering-inn-stats-viewer\src\app" />
+            <div class="form-text">The Angular viewer imports both jsons from <code>src/app</code>.</div>
+        </div>
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="copy" @bind="_copy" />
+            <label class="form-check-label" for="copy">Copy exports into the viewer folder after each run</label>
+        </div>
+        <button class="btn btn-primary" disabled="@Jobs.IsRunning" @onclick="Save">Save</button>
+        @if (_savedMessage != null)
+        {
+            <span class="ms-2 text-success">@_savedMessage</span>
+        }
+    </div>
+</div>
+
+<div class="card" style="max-width: 800px">
+    <div class="card-header"><strong>Import legacy caches</strong></div>
+    <div class="card-body">
+        <p class="small">
+            Imports <code>@Options.LegacyChapterDump</code>, the override files in <code>@Options.LegacyManualOverrides</code>
+            and <code>@Options.LegacyCharacterDump</code>. Chapters are matched by url and overwritten; all wiki characters are replaced.
+        </p>
+        @if (!Importer.HasLegacyData)
+        {
+            <p class="small text-muted">No legacy files were found in the workspace root.</p>
+        }
+        <button class="btn btn-outline-primary" disabled="@(Jobs.IsRunning || !Importer.HasLegacyData)" @onclick="Import">Import</button>
+        @if (_import != null)
+        {
+            <div class="alert alert-success mt-3 mb-0">
+                Imported @_import.Chapters chapters, @_import.Overrides overrides and @_import.Characters characters.
+                @if (_import.Warnings.Count > 0)
+                {
+                    <ul class="small mb-0 mt-2">
+                        @foreach (var warning in _import.Warnings)
+                        {
+                            <li>@warning</li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string _root = "";
+    private string? _export;
+    private string? _viewer;
+    private bool _copy;
+    private string? _savedMessage;
+    private LegacyImportResult? _import;
+
+    protected override void OnInitialized()
+    {
+        _root = Options.Root;
+        _export = Options.ExportDirectory;
+        _viewer = Options.ViewerDataDirectory;
+        _copy = Options.CopyToViewer;
+    }
+
+    private void Save()
+    {
+        Options.Root = string.IsNullOrWhiteSpace(_root) ? new WorkspaceOptions().Root : _root.Trim();
+        Options.ExportDirectory = string.IsNullOrWhiteSpace(_export) ? null : _export.Trim();
+        Options.ViewerDataDirectory = string.IsNullOrWhiteSpace(_viewer) ? null : _viewer.Trim();
+        Options.CopyToViewer = _copy && Options.ViewerDataDirectory != null;
+        _copy = Options.CopyToViewer;
+        SettingsStore.Save(Options);
+        _savedMessage = "Saved";
+    }
+
+    private void Import()
+    {
+        _import = null;
+        Jobs.TryStart("Legacy import", async ct =>
+        {
+            Jobs.Report("Importing dump.json, ManualOverrides and characters-raw.json…");
+            var result = await Importer.ImportAsync(ct);
+            await InvokeAsync(() => { _import = result; StateHasChanged(); });
+            return $"{result.Chapters} chapters, {result.Overrides} overrides, {result.Characters} characters";
+        });
+    }
+}

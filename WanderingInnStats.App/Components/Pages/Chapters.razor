@@ -1,0 +1,273 @@
+@page "/chapters"
+@implements IDisposable
+@inject ChapterService ChapterService
+@inject JobRunner Jobs
+
+<h1>Chapters</h1>
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <button class="btn btn-outline-primary" disabled="@(Jobs.IsRunning)" @onclick="CheckToc">Check TOC</button>
+    <button class="btn btn-primary" disabled="@(Jobs.IsRunning || _notDownloaded == 0)" @onclick="DownloadMissing">Download not downloaded (@_notDownloaded)</button>
+    <button class="btn btn-outline-primary" disabled="@(Jobs.IsRunning || _selected.Count == 0)" @onclick="DownloadSelected">Re-download selected (@_selected.Count)</button>
+    <button class="btn btn-outline-secondary" disabled="@(Jobs.IsRunning || _all.Count == 0)" @onclick="DownloadAll">Re-download all</button>
+    <button class="btn btn-outline-secondary" disabled="@(Jobs.IsRunning)" @onclick="ScanDirty">Scan for dirty chapters</button>
+</div>
+
+@if (_tocJobId is { } tocJobId && Jobs.Get(tocJobId) is { State: JobState.Failed, Exception: { } tocError } tocJob)
+{
+    <div class="alert alert-danger">
+        <div class="d-flex align-items-center mb-2">
+            <strong>Check TOC failed</strong>
+            <span class="small ms-2">@tocJob.StartedAt.ToString("T")</span>
+            <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="() => _tocJobId = null">Dismiss</button>
+        </div>
+        <ExceptionDetails Exception="tocError" Context="@($"Check TOC at {tocJob.StartedAt:G}")" />
+    </div>
+}
+
+@if (_tocDiff != null)
+{
+    <div class="card mb-3">
+        <div class="card-header d-flex align-items-center">
+            <strong>TOC diff</strong>
+            <span class="ms-2 small">
+                <span class="badge bg-success">@_tocDiff.New.Count() new</span>
+                <span class="badge bg-warning text-dark">@_tocDiff.Renamed.Count() renamed / moved</span>
+                <span class="badge bg-danger">@_tocDiff.Missing.Count() missing from TOC</span>
+                <span class="badge bg-secondary">@_tocDiff.UnchangedCount unchanged</span>
+            </span>
+            <button class="btn btn-sm btn-primary ms-auto" disabled="@Jobs.IsRunning" @onclick="ApplyToc">Apply to workspace</button>
+            <button class="btn btn-sm btn-link" @onclick="() => _tocDiff = null">Close</button>
+        </div>
+        @if (_tocDiff.Changes.Any(x => x.Kind != TocChangeKind.Unchanged))
+        {
+            <div class="card-body stat-table p-0">
+                <table class="table table-sm mb-0">
+                    <thead><tr><th>Change</th><th>Volume</th><th>Name</th><th>Before</th></tr></thead>
+                    <tbody>
+                    @foreach (var change in _tocDiff.Changes.Where(x => x.Kind != TocChangeKind.Unchanged))
+                    {
+                        <tr>
+                            <td>@change.Kind</td>
+                            <td>@change.Toc.Volume.Trim()</td>
+                            <td><a href="@change.Toc.Url" target="_blank">@change.Toc.Name</a></td>
+                            <td class="text-muted">@(change.Kind == TocChangeKind.Renamed ? $"{change.StoredVolume?.Trim()} / {change.StoredName}" : "")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+        <div class="card-footer small text-muted">Applying adds placeholder rows for new chapters (download them afterwards), updates names and order, and flags missing chapters. Nothing is deleted.</div>
+    </div>
+}
+
+<div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+    <input class="form-control form-control-sm" style="max-width: 260px" placeholder="Search name or url…" @bind="_search" @bind:event="oninput" />
+    <select class="form-select form-select-sm" style="max-width: 220px" @bind="_filter">
+        <option value="all">All</option>
+        <option value="not-downloaded">Not downloaded</option>
+        <option value="failed">Failed</option>
+        <option value="override">Has override</option>
+        <option value="stale">Override stale</option>
+        <option value="dirty">Dirty (after scan)</option>
+        <option value="excluded">Excluded</option>
+        <option value="not-in-toc">Not in TOC</option>
+    </select>
+    <span class="small text-muted">@Filtered.Count() of @_all.Count</span>
+    @if (_selected.Count > 0)
+    {
+        <button class="btn btn-sm btn-link" @onclick="() => _selected.Clear()">Clear selection</button>
+    }
+</div>
+
+@if (_all.Count == 0)
+{
+    <p class="text-muted">No chapters yet. Use <em>Check TOC</em> → <em>Apply</em> → <em>Download</em>, or import the legacy dump on the Settings page.</p>
+}
+else
+{
+    <table class="table table-sm table-hover table-chapters">
+        <thead>
+        <tr>
+            <th><input type="checkbox" class="form-check-input" checked="@AllFilteredSelected" @onchange="ToggleAllFiltered" /></th>
+            <th>#</th>
+            <th>Name</th>
+            <th>Date</th>
+            <th class="text-end">Words (≈)</th>
+            <th>Status</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var volume in Filtered.GroupBy(x => x.Volume))
+        {
+            <tr class="table-light"><th colspan="6">@volume.Key.Trim()</th></tr>
+            @foreach (var chapter in volume)
+            {
+                <tr class="@(chapter.Excluded ? "text-muted" : "")">
+                    <td><input type="checkbox" class="form-check-input" checked="@_selected.Contains(chapter.Id)" @onchange="e => Toggle(chapter.Id, e)" /></td>
+                    <td class="text-muted small">@chapter.TocOrder</td>
+                    <td><a href="chapters/@chapter.Id">@chapter.Name</a></td>
+                    <td class="small">@(chapter.IsDownloaded ? chapter.Date.ToLocalTime().ToString("d") : "")</td>
+                    <td class="text-end small">@(chapter.IsDownloaded ? (chapter.Length / 5.7).ToString("N0") : "")</td>
+                    <td>
+                        @if (!chapter.IsDownloaded) { <span class="badge bg-secondary">not downloaded</span> }
+                        @if (chapter.LastError != null) { <a class="badge bg-danger text-decoration-none" href="chapters/@chapter.Id" title="@FirstLine(chapter.LastError)">failed</a> }
+                        @if (chapter.HasOverride) { <span class="badge bg-info text-dark">override</span> }
+                        @if (chapter.OverrideStale) { <span class="badge bg-warning text-dark">override stale</span> }
+                        @if (_dirty?.Contains(chapter.Id) == true) { <span class="badge bg-danger">dirty</span> }
+                        @if (chapter.Excluded) { <span class="badge bg-dark">excluded</span> }
+                        @if (!chapter.InToc) { <span class="badge bg-light text-dark border">not in TOC</span> }
+                    </td>
+                </tr>
+            }
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<ChapterSummary> _all = new();
+    private readonly HashSet<int> _selected = new();
+    private HashSet<int>? _dirty;
+    private TocDiff? _tocDiff;
+    private string _search = "";
+    private string _filter = "all";
+    private int _notDownloaded;
+    private bool _wasRunning;
+    private int? _tocJobId;
+
+    private IEnumerable<ChapterSummary> Filtered => _all
+        .Where(x => string.IsNullOrWhiteSpace(_search)
+                    || x.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                    || x.Url.Contains(_search, StringComparison.OrdinalIgnoreCase))
+        .Where(x => _filter switch
+        {
+            "not-downloaded" => !x.IsDownloaded,
+            "failed" => x.LastError != null,
+            "override" => x.HasOverride,
+            "stale" => x.OverrideStale,
+            "dirty" => _dirty?.Contains(x.Id) == true,
+            "excluded" => x.Excluded,
+            "not-in-toc" => !x.InToc,
+            _ => true
+        });
+
+    private bool AllFilteredSelected => Filtered.Any() && Filtered.All(x => _selected.Contains(x.Id));
+
+    protected override async Task OnInitializedAsync()
+    {
+        Jobs.Changed += OnJobChanged;
+        _wasRunning = Jobs.IsRunning;
+        await Reload();
+    }
+
+    private async Task Reload()
+    {
+        _all = await ChapterService.GetSummariesAsync();
+        _notDownloaded = _all.Count(x => !x.IsDownloaded);
+    }
+
+    private void OnJobChanged()
+    {
+        var finished = _wasRunning && !Jobs.IsRunning;
+        _wasRunning = Jobs.IsRunning;
+        InvokeAsync(async () =>
+        {
+            if (finished)
+                await Reload();
+            StateHasChanged();
+        });
+    }
+
+    private void Toggle(int id, ChangeEventArgs e)
+    {
+        if (e.Value is true) _selected.Add(id);
+        else _selected.Remove(id);
+    }
+
+    private void ToggleAllFiltered(ChangeEventArgs e)
+    {
+        foreach (var chapter in Filtered)
+        {
+            if (e.Value is true) _selected.Add(chapter.Id);
+            else _selected.Remove(chapter.Id);
+        }
+    }
+
+    private void CheckToc()
+    {
+        _tocDiff = null;
+        var started = Jobs.TryStart("Check TOC", async ct =>
+        {
+            Jobs.Report("Fetching table of contents…");
+            var diff = await ChapterService.GetTocDiffAsync(ct);
+            await InvokeAsync(() => { _tocDiff = diff; StateHasChanged(); });
+            return $"{diff.New.Count()} new, {diff.Renamed.Count()} renamed, {diff.Missing.Count()} missing";
+        });
+        if (started)
+            _tocJobId = Jobs.Current?.Id;
+    }
+
+    private async Task ApplyToc()
+    {
+        if (_tocDiff == null) return;
+        await ChapterService.ApplyTocAsync(_tocDiff);
+        _tocDiff = null;
+        await Reload();
+    }
+
+    private async Task DownloadMissing()
+    {
+        var refs = await ChapterService.GetNotDownloadedAsync();
+        StartDownload("Download chapters", refs);
+    }
+
+    private async Task DownloadSelected()
+    {
+        var refs = await ChapterService.GetRefsAsync(_selected);
+        StartDownload("Re-download selected", refs);
+    }
+
+    private async Task DownloadAll()
+    {
+        var refs = await ChapterService.GetRefsAsync(_all.Select(x => x.Id));
+        StartDownload("Re-download all", refs);
+    }
+
+    private void StartDownload(string name, List<ChapterRef> refs)
+    {
+        Jobs.TryStart(name, async ct =>
+        {
+            var progress = new Progress<DownloadProgress>(p =>
+                Jobs.Report($"{p.Done}/{p.Total} – {p.Current}" + (p.Failed > 0 ? $" ({p.Failed} failed)" : ""), p.Total == 0 ? null : 100.0 * p.Done / p.Total));
+            var result = await ChapterService.DownloadAsync(refs, progress, ct);
+            if (result.Failed > 0)
+            {
+                foreach (var (name, error) in await ChapterService.GetErrorsAsync(refs.Select(x => x.Url), ct))
+                    Jobs.AddNote($"Failed: {name}", error);
+            }
+            return $"{result.Succeeded} downloaded, {result.Failed} failed, {result.OverridesMarkedStale} overrides now stale";
+        });
+    }
+
+    private void ScanDirty()
+    {
+        Jobs.TryStart("Dirty scan", async ct =>
+        {
+            Jobs.Report("Running ChapterFixing over all chapters…");
+            var dirty = await Task.Run(() => ChapterService.FindDirtyAsync(ct), ct);
+            await InvokeAsync(() =>
+            {
+                _dirty = dirty;
+                _filter = "dirty";
+                StateHasChanged();
+            });
+            return $"{dirty.Count} chapters still dirty after fixing";
+        });
+    }
+
+    private static string FirstLine(string? text) => text?.Split('\n')[0] ?? "";
+
+    public void Dispose() => Jobs.Changed -= OnJobChanged;
+}

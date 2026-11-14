@@ -1,0 +1,123 @@
+@using System.Diagnostics
+@using WanderingInnStats.Pipeline.Diagnostics
+
+@* Renders an exception chain: type, message, stack trace per level, plus scrape snapshots / console output. *@
+
+<div class="exception-details">
+    <div class="d-flex gap-2 mb-2">
+        <button class="btn btn-sm btn-outline-secondary" @onclick="Copy">@(_copied ? "Copied ✓" : "Copy full report")</button>
+    </div>
+
+    @{ var level = 0; }
+    @foreach (var ex in Chain(Exception))
+    {
+        var current = level++;
+        <div class="exception-level mb-3">
+            <div>
+                @if (current > 0)
+                {
+                    <span class="text-muted small">caused by </span>
+                }
+                <code class="fw-bold">@ex.GetType().FullName</code>
+            </div>
+            <div class="mb-1">@ex.Message</div>
+
+            @if (ex is ScrapeException scrape)
+            {
+                @if (scrape.Snapshot is { } snap)
+                {
+                    <div class="card card-body py-2 mb-2 small">
+                        <div class="fw-bold mb-1">What the server returned for <a href="@snap.Url" target="_blank">@snap.Url</a></div>
+                        @if (snap.FetchError != null)
+                        {
+                            <div class="text-danger">Diagnostic fetch also failed: @snap.FetchError</div>
+                        }
+                        else
+                        {
+                            <div>HTTP <strong>@snap.StatusCode</strong> @snap.ReasonPhrase · @snap.ContentType · @snap.Length?.ToString("N0") chars</div>
+                            <div>Title: <em>@snap.Title</em></div>
+                            @if (snap.LooksLikeCloudflare)
+                            {
+                                <div class="text-danger fw-bold">Looks like a Cloudflare block/challenge page.</div>
+                            }
+                            <table class="table table-sm mb-1 mt-1" style="max-width: 500px">
+                                <thead><tr><th>Selector the scrapper relies on</th><th class="text-end">Matches</th></tr></thead>
+                                <tbody>
+                                @foreach (var check in snap.Selectors)
+                                {
+                                    <tr class="@(check.Matches == 0 ? "table-danger" : "")">
+                                        <td><code>@check.Selector</code></td>
+                                        <td class="text-end">@check.Matches</td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                            @if (snap.SavedTo != null)
+                            {
+                                <div>
+                                    Saved HTML: <code>@snap.SavedTo</code>
+                                    <button class="btn btn-sm btn-link p-0 ms-2" @onclick="() => Open(snap.SavedTo)">open</button>
+                                    <button class="btn btn-sm btn-link p-0 ms-2" @onclick="() => Reveal(snap.SavedTo)">show in folder</button>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+                @if (scrape.ConsoleOutput != null)
+                {
+                    <div class="small fw-bold">Scrapper console output</div>
+                    <pre class="stack-trace">@scrape.ConsoleOutput</pre>
+                }
+            }
+
+            @if (!string.IsNullOrWhiteSpace(ex.StackTrace))
+            {
+                <details open="@(current == 0 || ex.InnerException == null)">
+                    <summary class="small">Stack trace</summary>
+                    <pre class="stack-trace">@ex.StackTrace</pre>
+                </details>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Exception Exception { get; set; } = null!;
+
+    /// <summary>Extra context to include in the copied report (e.g. job name and time).</summary>
+    [Parameter] public string? Context { get; set; }
+
+    private bool _copied;
+
+    private static IEnumerable<Exception> Chain(Exception root)
+    {
+        var queue = new Queue<Exception>();
+        queue.Enqueue(root);
+        var seen = new HashSet<Exception>();
+        while (queue.Count > 0)
+        {
+            var ex = queue.Dequeue();
+            if (!seen.Add(ex)) continue;
+            yield return ex;
+
+            if (ex is AggregateException aggregate)
+                foreach (var inner in aggregate.InnerExceptions)
+                    queue.Enqueue(inner);
+            else if (ex.InnerException != null)
+                queue.Enqueue(ex.InnerException);
+        }
+    }
+
+    private async Task Copy()
+    {
+        var report = (Context != null ? Context + Environment.NewLine + Environment.NewLine : "") + Exception;
+        await Clipboard.Default.SetTextAsync(report);
+        _copied = true;
+    }
+
+    private static void Open(string path) =>
+        Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+
+    private static void Reveal(string path) =>
+        Process.Start("explorer.exe", $"/select,\"{path}\"");
+}
