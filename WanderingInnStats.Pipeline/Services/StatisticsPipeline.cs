@@ -2,7 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using WanderingInnStats.Core;
+using Humanizer;
 using WanderingInnStats.Parsing;
+using WanderingInnStats.Parsing.IndividualStatistic.Brackets;
 using WanderingInnStats.Pipeline.Data;
 using WanderingInnStats.Pipeline.Export;
 
@@ -81,9 +83,11 @@ public class StatisticsPipeline
         progress?.Report(PipelineStage.Loading);
         var chapters = await LoadChaptersAsync(ct);
         var characters = await _wikiService.GetIncludedCharactersAsync(ct);
+        var entities = await _wikiService.GetIncludedEntitiesAsync(null, ct);
         run.ChapterCount = chapters.Count;
         run.CharacterCount = characters.Count;
-        logger.LogInformation("Loaded {chapters} chapters and {characters} characters", chapters.Count, characters.Count);
+        logger.LogInformation("Loaded {chapters} chapters, {characters} characters and wiki ground truth: {entities}", chapters.Count, characters.Count,
+            string.Join(", ", entities.GroupBy(x => x.Kind).Select(g => $"{g.Count()} {g.Key}")));
 
         if (chapters.Count == 0)
             throw new InvalidOperationException("No downloaded chapters to process.");
@@ -101,7 +105,7 @@ public class StatisticsPipeline
 
         ct.ThrowIfCancellationRequested();
         progress?.Report(PipelineStage.FirstPass);
-        var inferredDefinition = await InferDefinitions(chapters, characters);
+        var inferredDefinition = await InferDefinitions(chapters, characters, entities);
 
         ct.ThrowIfCancellationRequested();
         progress?.Report(PipelineStage.SecondPass);
@@ -125,6 +129,7 @@ public class StatisticsPipeline
         var finalDefinitions = new WanderingInnDefinitions();
         finalDefinitions.Add(wanderingInnStatistics);
         finalDefinitions.Characters.AddRange(inferredDefinition.Characters);
+        finalDefinitions.AddGroundTruthOf(inferredDefinition);
         run.UnknownCount = finalDefinitions.Unknown.Count;
         logger.LogInformation("Unknowns: {unknown}", finalDefinitions.Unknown.Count);
 
@@ -167,17 +172,37 @@ public class StatisticsPipeline
         return stored.Select(x => x.ToChapter()).ToList();
     }
 
-    public static async Task<WanderingInnDefinitions> InferDefinitions(List<Chapter> chapters, List<CharacterRaw> characters)
+    /// <summary>
+    /// A first pass over <paramref name="chapters"/> infers classes, skills and spells from the brackets' context;
+    /// the wiki's <paramref name="entities"/> are then added as ground truth on top, along with the characters.
+    /// </summary>
+    public static async Task<WanderingInnDefinitions> InferDefinitions(List<Chapter> chapters, List<CharacterRaw> characters, List<WikiEntityRaw>? entities = null)
     {
+        entities ??= new List<WikiEntityRaw>();
+        RaceHelper.Configure(RaceNames(entities));
+
+        var groundTruth = new WanderingInnDefinitions();
+        groundTruth.Add(entities);
+
         var wanderingInnDefinitions = new WanderingInnDefinitions();
         var firstPassParser = new ChapterStatisticsParser(NullLogger.Instance, wanderingInnDefinitions);
         var firstPass = await firstPassParser.Create(chapters);
 
         var inferredDefinition = new WanderingInnDefinitions();
         inferredDefinition.Add(firstPass.Select(x => x.Statistics));
+        inferredDefinition.AddGroundTruthOf(groundTruth);
         inferredDefinition.Add(characters);
         return inferredDefinition;
     }
+
+    /// <summary>
+    /// Species usable as "Drake [Guardsman]": top-level ones, and sub-entries that are a variant of their parent
+    /// ("Hobgoblins" under Goblins), but not ambiguous ones like "Soldier" under Antinium.
+    /// </summary>
+    private static IEnumerable<string> RaceNames(IEnumerable<WikiEntityRaw> entities) => entities
+        .Where(x => x.Kind == WikiEntityKind.Species)
+        .Where(x => x.Parent == null || x.Name.Contains(x.Parent.Singularize(false), StringComparison.OrdinalIgnoreCase))
+        .Select(x => x.Name);
 
     private static void DirtyChapterFixing(List<Chapter> chapters, ILogger logger)
     {

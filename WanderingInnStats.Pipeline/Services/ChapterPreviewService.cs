@@ -67,7 +67,8 @@ public class ChapterPreviewService
         if (definitions == null)
         {
             var characters = await _wikiService.GetIncludedCharactersAsync(cancellationToken);
-            definitions = await StatisticsPipeline.InferDefinitions(new List<Chapter> { chapter }, characters);
+            var entities = await _wikiService.GetIncludedEntitiesAsync(null, cancellationToken);
+            definitions = await StatisticsPipeline.InferDefinitions(new List<Chapter> { chapter }, characters, entities);
         }
 
         var parser = new ChapterStatisticsParser(NullLogger.Instance, definitions);

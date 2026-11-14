@@ -1,5 +1,6 @@
 @page "/wiki"
 @using Microsoft.EntityFrameworkCore
+@using WanderingInnStats.Core
 @implements IDisposable
 @inject WikiService WikiService
 @inject WorkspaceDbFactory DbFactory
@@ -7,20 +8,24 @@
 
 <h1>Wiki</h1>
 
-<p>
-    <strong>@_characters.Count</strong> characters stored (@_characters.Count(x => x.Excluded) excluded) ·
-    last download: @(_characters.Count == 0 ? "never" : _characters.Max(x => x.DownloadedAt).ToLocalTime().ToString("g"))
+<p class="small text-muted">
+    Ground truth from <a href="https://wiki.wanderinginn.com" target="_blank">wiki.wanderinginn.com</a>. Characters are matched in the text,
+    classes and spells decide how [brackets] are classified, and species, monsters and locations are counted as mentions.
 </p>
 
 <div class="d-flex flex-wrap gap-2 mb-3">
-    <button class="btn btn-primary" disabled="@Jobs.IsRunning" @onclick="() => Download(false)">Download / refresh</button>
-    <button class="btn btn-outline-danger" disabled="@Jobs.IsRunning" @onclick="() => Download(true)"
-            title="Deletes W:\temp\wanderingInn\cache.sqlite so every page is fetched again">Force refresh (clear HTML cache)</button>
+    <button class="btn btn-primary" disabled="@Jobs.IsRunning" @onclick="() => Download(WikiService.AllSources, false)">
+        Download / refresh all <EstimateHint Count="@WikiService.EstimatedRequests(WikiService.AllSources)" />
+    </button>
+    <button class="btn btn-outline-primary" disabled="@Jobs.IsRunning" @onclick="() => Download(new[] { _tab }, false)">
+        Refresh @_tab <EstimateHint Count="@WikiService.EstimatedRequests(new[] { _tab })" />
+    </button>
+    <button class="btn btn-outline-danger" disabled="@Jobs.IsRunning" @onclick="() => Download(WikiService.AllSources, true)"
+            title="Deletes @WorkspaceOptions.ScrapperWikiCacheFile so every response is fetched again">Force refresh all (clear cache)</button>
     <button class="btn btn-outline-secondary" disabled="@Jobs.IsRunning" @onclick="SanityCheck">Run sanity check</button>
 </div>
 <p class="small text-muted">
-    A normal refresh re-parses every character page, but pages already in the scrapper's HTML cache
-    (<code>@WorkspaceOptions.ScrapperWikiCacheFile</code>) aren't fetched again, so only new pages hit the network.
+    API responses are cached in <code>@WorkspaceOptions.ScrapperWikiCacheFile</code>, so a normal refresh only fetches what wasn't fetched before.
     Use force refresh to pick up wiki edits.
 </p>
 
@@ -35,20 +40,27 @@
     </div>
 }
 
-@if (_failures is { Count: > 0 })
+@if (_result != null && (_result.Failures.Count > 0 || _result.Sources.Any(x => x.Error != null)))
 {
     <div class="alert alert-warning">
-        <strong>@_failures.Count character pages failed to parse.</strong> Stored characters were replaced with the ones that did parse.
-        @foreach (var failure in _failures.Take(50))
+        @foreach (var failed in _result.Sources.Where(x => x.Error != null))
+        {
+            <div><strong>@failed.Source failed</strong>, the stored @failed.Source.ToString().ToLowerInvariant() were kept: @failed.Error</div>
+        }
+        @if (_result.Failures.Count > 0)
+        {
+            <div><strong>@_result.Failures.Count pages failed to parse.</strong></div>
+        }
+        @foreach (var failure in _result.Failures.Take(50))
         {
             <details class="small">
                 <summary><a href="@failure.Url" target="_blank">@failure.Url</a></summary>
                 <pre class="stack-trace">@failure.Error</pre>
             </details>
         }
-        @if (_failures.Count > 50)
+        @if (_result.Failures.Count > 50)
         {
-            <div class="small">…and @(_failures.Count - 50) more, all listed on the <a href="jobs">Jobs</a> page.</div>
+            <div class="small">…and @(_result.Failures.Count - 50) more, all listed on the <a href="jobs">Jobs</a> page.</div>
         }
     </div>
 }
@@ -60,38 +72,129 @@
     </div>
 }
 
+<ul class="nav nav-tabs mb-2">
+    @foreach (var info in _info)
+    {
+        var source = info.Source;
+        <li class="nav-item">
+            <button class="nav-link @(source == _tab ? "active" : "")" @onclick="() => SelectTab(source)">
+                @source <span class="badge text-bg-secondary">@info.Count</span>
+            </button>
+        </li>
+    }
+</ul>
+
+@if (_info.FirstOrDefault(x => x.Source == _tab) is { } current)
+{
+    <p class="small">
+        <strong>@current.Count</strong> stored (@current.Excluded excluded) ·
+        last download: @(current.LastDownload?.ToLocalTime().ToString("g") ?? "never") ·
+        <a href="@WikiService.SourceUrl(_tab)" target="_blank">source</a>
+    </p>
+}
+
 <input class="form-control form-control-sm mb-2" style="max-width: 300px" placeholder="Search…" @bind="_search" @bind:event="oninput" />
 
-<table class="table table-sm table-hover">
-    <thead><tr><th>Name</th><th>Aliases</th><th>Species</th><th>Gender</th><th>Included</th></tr></thead>
-    <tbody>
-    <Virtualize Items="Filtered" Context="row" ItemSize="33">
-        <tr class="@(row.Stored.Excluded ? "text-muted" : "")">
-            <td><a href="@row.Stored.WikiUrl" target="_blank">@row.Stored.Name</a></td>
-            <td class="small">@string.Join(", ", row.Raw.Aliases ?? Array.Empty<string>())</td>
-            <td class="small">@row.Raw.Species</td>
-            <td class="small">@row.Raw.Gender</td>
-            <td><input type="checkbox" class="form-check-input" checked="@(!row.Stored.Excluded)" @onchange="e => SetIncluded(row.Stored, e)" /></td>
+@if (_tab == WikiSource.Characters)
+{
+    <table class="table table-sm table-hover">
+        <thead><tr><th>Name</th><th>Aliases</th><th>Species</th><th>Gender</th><th>First appearance</th><th>Included</th></tr></thead>
+        <tbody>
+        <Virtualize Items="FilteredCharacters" Context="row" ItemSize="33">
+            <tr class="@(row.Stored.Excluded ? "text-muted" : "")">
+                <td><a href="@row.Stored.WikiUrl" target="_blank">@row.Stored.Name</a></td>
+                <td class="small">@string.Join(", ", row.Raw.Aliases ?? Array.Empty<string>())</td>
+                <td class="small">@row.Raw.Species</td>
+                <td class="small">@row.Raw.Gender</td>
+                <td class="small">@row.Raw.FirstAppearance</td>
+                <td><input type="checkbox" class="form-check-input" checked="@(!row.Stored.Excluded)" @onchange="e => SetIncluded(row.Stored, e)" /></td>
+            </tr>
+        </Virtualize>
+        </tbody>
+    </table>
+}
+else
+{
+    <table class="table table-sm table-hover">
+        <thead>
+        <tr>
+            <th>Name</th><th>Aliases</th>
+            @if (_tab is WikiSource.Species or WikiSource.Monsters)
+            {
+                <th>Under</th>
+            }
+            @if (_tab == WikiSource.Spells)
+            {
+                <th>Tier</th>
+            }
+            @if (_tab == WikiSource.Classes)
+            {
+                <th>Known characters</th>
+            }
+            @if (_tab is WikiSource.Spells or WikiSource.Classes)
+            {
+                <th>Description</th>
+            }
+            <th>Included</th>
         </tr>
-    </Virtualize>
-    </tbody>
-</table>
+        </thead>
+        <tbody>
+        <Virtualize Items="FilteredEntities" Context="row" ItemSize="33">
+            <tr class="@(row.Stored.Excluded ? "text-muted" : "")">
+                <td>
+                    <a href="@row.Raw.WikiUrl" target="_blank">@row.Stored.Name</a>
+                    @if (row.Raw.Hypothetical)
+                    {
+                        <span class="badge text-bg-light" title="Hypothetical/fake class, or a spell without [box]">@(_tab == WikiSource.Spells ? "boxless" : "hypothetical")</span>
+                    }
+                </td>
+                <td class="small">@string.Join(", ", row.Raw.Aliases)</td>
+                @if (_tab is WikiSource.Species or WikiSource.Monsters)
+                {
+                    <td class="small">@row.Raw.Parent</td>
+                }
+                @if (_tab == WikiSource.Spells)
+                {
+                    <td class="small">@row.Raw.Tier</td>
+                }
+                @if (_tab == WikiSource.Classes)
+                {
+                    <td class="small">@string.Join(", ", row.Raw.KnownCharacters)</td>
+                }
+                @if (_tab is WikiSource.Spells or WikiSource.Classes)
+                {
+                    <td class="small">@row.Raw.Description</td>
+                }
+                <td><input type="checkbox" class="form-check-input" checked="@(!row.Stored.Excluded)" @onchange="e => SetEntityIncluded(row.Stored, e)" /></td>
+            </tr>
+        </Virtualize>
+        </tbody>
+    </table>
+}
 
 @code {
-    private record Row(StoredCharacter Stored, Core.CharacterRaw Raw);
+    private record CharacterRow(StoredCharacter Stored, CharacterRaw Raw);
+    private record EntityRow(StoredWikiEntity Stored, WikiEntityRaw Raw);
 
-    private List<StoredCharacter> _characters = new();
-    private List<Row> _rows = new();
+    private WikiSource _tab = WikiSource.Characters;
+    private List<WikiSourceInfo> _info = new();
+    private List<CharacterRow> _characters = new();
+    private List<EntityRow> _entities = new();
     private string _search = "";
     private SanityCheckResult? _sanity;
-    private IReadOnlyList<WikiPageFailure>? _failures;
+    private WikiDownloadResult? _result;
     private int? _downloadJobId;
     private bool _wasRunning;
 
-    private List<Row> Filtered => string.IsNullOrWhiteSpace(_search)
-        ? _rows
-        : _rows.Where(x => x.Stored.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
-                           || (x.Raw.Aliases?.Any(a => a.Contains(_search, StringComparison.OrdinalIgnoreCase)) ?? false)).ToList();
+    private List<CharacterRow> FilteredCharacters => string.IsNullOrWhiteSpace(_search)
+        ? _characters
+        : _characters.Where(x => x.Stored.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                                 || (x.Raw.Aliases?.Any(a => a.Contains(_search, StringComparison.OrdinalIgnoreCase)) ?? false)).ToList();
+
+    private List<EntityRow> FilteredEntities => string.IsNullOrWhiteSpace(_search)
+        ? _entities
+        : _entities.Where(x => x.Stored.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                               || x.Raw.Aliases.Any(a => a.Contains(_search, StringComparison.OrdinalIgnoreCase))).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -100,11 +203,30 @@
         await Reload();
     }
 
+    private async Task SelectTab(WikiSource source)
+    {
+        _tab = source;
+        await Reload();
+    }
+
     private async Task Reload()
     {
+        _info = await WikiService.GetSourceInfoAsync();
         await using var db = DbFactory.CreateDbContext();
-        _characters = await db.Characters.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
-        _rows = _characters.Select(x => new Row(x, x.ToCharacter())).ToList();
+
+        if (_tab == WikiSource.Characters)
+        {
+            var characters = await db.Characters.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
+            _characters = characters.Select(x => new CharacterRow(x, x.ToCharacter())).ToList();
+            _entities = new();
+        }
+        else
+        {
+            var kind = WikiService.KindOf(_tab)!.Value;
+            var entities = await db.WikiEntities.AsNoTracking().Where(x => x.Kind == kind).OrderBy(x => x.SortOrder).ToListAsync();
+            _entities = entities.Select(x => new EntityRow(x, x.ToEntity())).ToList();
+            _characters = new();
+        }
     }
 
     private void OnJobChanged()
@@ -119,18 +241,19 @@
         });
     }
 
-    private void Download(bool force)
+    private void Download(IReadOnlyCollection<WikiSource> sources, bool force)
     {
-        _failures = null;
-        var started = Jobs.TryStart(force ? "Wiki force refresh" : "Wiki download", async ct =>
+        _result = null;
+        var what = sources.Count == WikiService.AllSources.Count ? "all" : string.Join(", ", sources);
+        var started = Jobs.TryStart(force ? $"Wiki force refresh ({what})" : $"Wiki download ({what})", async ct =>
         {
             var progress = new Progress<WikiProgress>(p =>
-                Jobs.Report($"{p.Stage}: {p.Done}/{p.Total} {p.Current}", p.Total == 0 ? null : 100.0 * p.Done / p.Total));
-            var result = await WikiService.DownloadAllAsync(force, progress, ct);
+                Jobs.Report($"{p.Stage}: {p.Current}", p.Total == 0 ? null : 100.0 * p.Done / p.Total));
+            var result = await WikiService.DownloadAsync(sources, force, progress, ct);
             foreach (var failure in result.Failures)
                 Jobs.AddNote($"Failed: {failure.Url}", failure.Error);
-            await InvokeAsync(() => { _failures = result.Failures; StateHasChanged(); });
-            return $"{result.Characters} characters, {result.Skipped} pages failed";
+            await InvokeAsync(() => { _result = result; StateHasChanged(); });
+            return result.Summary;
         });
         if (started)
             _downloadJobId = Jobs.Current?.Id;
@@ -152,6 +275,14 @@
         await WikiService.SetExcludedAsync(character.WikiUrl, excluded);
         character.Excluded = excluded;
         _sanity = null;
+    }
+
+    private async Task SetEntityIncluded(StoredWikiEntity entity, ChangeEventArgs e)
+    {
+        var excluded = e.Value is not true;
+        await WikiService.SetEntityExcludedAsync(entity.Id, excluded);
+        entity.Excluded = excluded;
+        _info = await WikiService.GetSourceInfoAsync();
     }
 
     public void Dispose() => Jobs.Changed -= OnJobChanged;

@@ -15,6 +15,9 @@
   UnknownBrackets: { [key: string]: number } = {};
   ClassConsolidationRemovals: { [key: string]: number } = {};
   ClassLevelUps: { [key: string]: number } = {};
+  SpeciesMentions: { [key: string]: number } = {};
+  MonsterMentions: { [key: string]: number } = {};
+  LocationMentions: { [key: string]: number } = {};
 }
 
 export class WanderingInnStatistic extends AbstractWanderingInnStatistic {

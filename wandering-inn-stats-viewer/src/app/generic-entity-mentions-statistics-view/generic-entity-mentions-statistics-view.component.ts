@@ -41,6 +41,12 @@ export class GenericEntityMentionsStatisticsViewComponent implements OnInit {
         return statistic => statistic.CharacterMentions
       case "unknown":
         return statistic => statistic.UnknownBrackets
+      case "species":
+        return statistic => statistic.SpeciesMentions ?? {}
+      case "monster":
+        return statistic => statistic.MonsterMentions ?? {}
+      case "location":
+        return statistic => statistic.LocationMentions ?? {}
       default:
         throw new Error(`type ${entityType} is not a known EntityType`)
     }
@@ -48,6 +54,6 @@ export class GenericEntityMentionsStatisticsViewComponent implements OnInit {
 
 }
 
-export type EntityType = "class" | "skill" | "character" | "unknown"
+export type EntityType = "class" | "skill" | "character" | "unknown" | "species" | "monster" | "location"
 
 

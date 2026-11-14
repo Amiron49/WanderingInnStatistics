@@ -42,6 +42,7 @@ else
                 <div class="card-body">
                     <h5 class="card-title">Wiki characters</h5>
                     <p class="display-6">@_characters</p>
+                    <p class="small mb-1">@_entities</p>
                     <p class="small mb-0">Last download: @(_lastWiki?.ToLocalTime().ToString("g") ?? "never")</p>
                 </div>
                 <div class="card-footer"><a href="wiki">Manage wiki →</a></div>
@@ -74,6 +75,7 @@ else
     private bool _empty;
     private int _totalChapters, _downloaded, _failed, _overrides, _stale, _excluded, _characters;
     private DateTime? _lastWiki;
+    private string _entities = "";
     private StatisticsRun? _lastRun;
 
     protected override async Task OnInitializedAsync()
@@ -89,6 +91,8 @@ else
         await using var db = DbFactory.CreateDbContext();
         _characters = db.Characters.Count();
         _lastWiki = db.Characters.Max(x => (DateTime?)x.DownloadedAt);
+        var info = await Wiki.GetSourceInfoAsync();
+        _entities = string.Join(" · ", info.Where(x => x.Source != WikiSource.Characters).Select(x => $"{x.Count} {x.Source.ToString().ToLowerInvariant()}"));
         _lastRun = db.Runs.OrderByDescending(x => x.StartedAt).FirstOrDefault();
         _empty = _totalChapters == 0 && _characters == 0;
         _loading = false;

@@ -25,7 +25,8 @@ namespace WanderingInnStats.Parsing
             {
                 new BracketsParser(_logger),
                 new SimpleWordStats(),
-                new CharacterStats()
+                new CharacterStats(),
+                new EntityMentionStats()
             };
         }
 

@@ -29,6 +29,9 @@ namespace WanderingInnStats
         Dictionary<string, int> SkillsSkills { get; }
         Dictionary<string, int> SkillsSpells { get; }
         Dictionary<string, int> OtherWordsUsage { get; }
+        Dictionary<string, int> SpeciesMentions { get; }
+        Dictionary<string, int> MonsterMentions { get; }
+        Dictionary<string, int> LocationMentions { get; }
     }
 
     public abstract class AccumulatingStatistics : IWanderingInnStatistics
@@ -64,6 +67,9 @@ namespace WanderingInnStats
         public Dictionary<string, int> SkillsSkills => Skills.Where(x => x.Key.Type == SkillType.Skill).ToDictionary(pair => pair.Key.Name, pair => pair.Value);
         public Dictionary<string, int> SkillsSpells => Skills.Where(x => x.Key.Type == SkillType.Spell).ToDictionary(pair => pair.Key.Name, pair => pair.Value);
         public Dictionary<string, int> OtherWordsUsage => Children.Select(x => x.OtherWordsUsage).Accumulate();
+        public Dictionary<string, int> SpeciesMentions => Children.Select(x => x.SpeciesMentions).Accumulate();
+        public Dictionary<string, int> MonsterMentions => Children.Select(x => x.MonsterMentions).Accumulate();
+        public Dictionary<string, int> LocationMentions => Children.Select(x => x.LocationMentions).Accumulate();
 
         protected abstract IEnumerable<IWanderingInnStatistics> Children { get; }
     }
@@ -115,6 +121,9 @@ namespace WanderingInnStats
             OtherWordsUsage = other.OtherWordsUsage;
             UnknownBrackets = other.UnknownBrackets;
             ClassWithLevels = other.ClassWithLevels;
+            SpeciesMentions = other.SpeciesMentions;
+            MonsterMentions = other.MonsterMentions;
+            LocationMentions = other.LocationMentions;
             Words = other.Words;
         }
     }
@@ -152,5 +161,8 @@ namespace WanderingInnStats
         public Dictionary<string, int> SkillsSkills => Skills.Where(x => x.Key.Type == SkillType.Skill).ToDictionary(pair => pair.Key.Name, pair => pair.Value);
         public Dictionary<string, int> SkillsSpells => Skills.Where(x => x.Key.Type == SkillType.Spell).ToDictionary(pair => pair.Key.Name, pair => pair.Value);
         public Dictionary<string, int> OtherWordsUsage { get; protected init; } = new();
+        public Dictionary<string, int> SpeciesMentions { get; protected init; } = new();
+        public Dictionary<string, int> MonsterMentions { get; protected init; } = new();
+        public Dictionary<string, int> LocationMentions { get; protected init; } = new();
     }
 }

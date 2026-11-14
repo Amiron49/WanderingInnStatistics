@@ -14,7 +14,7 @@ using ILogger = Microsoft.Extensions.Logging.ILogger;
 namespace WanderingInnStats.Cli
 {
     /// <summary>
-    /// Headless entry point. Usage: WanderingInnStats.Cli [--root &lt;dir&gt;] [--download-missing] [--wiki] [--no-stats]
+    /// Headless entry point. Usage: WanderingInnStats.Cli [--root &lt;dir&gt;] [--download-missing] [--wiki [--force]] [--no-stats]
     /// </summary>
     public static class Program
     {
@@ -63,7 +63,8 @@ namespace WanderingInnStats.Cli
                 if (args.Contains("--wiki"))
                 {
                     var wiki = services.GetRequiredService<WikiService>();
-                    await wiki.DownloadAllAsync(forceRefresh: false, null, cts.Token);
+                    var wikiResult = await wiki.DownloadAllAsync(forceRefresh: args.Contains("--force"), null, cts.Token);
+                    Log.Information("Wiki: {summary}", wikiResult.Summary);
                 }
 
                 if (!args.Contains("--no-stats"))

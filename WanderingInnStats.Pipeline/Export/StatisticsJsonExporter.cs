@@ -97,6 +97,9 @@ namespace WanderingInnStats.Pipeline.Export
             asDumboDictionary.AddIfNotNull(value, statistics => statistics.ClassConsolidationRemovals);
             asDumboDictionary.AddIfNotNull(value, statistics => statistics.ClassLevelUps);
             asDumboDictionary.AddIfNotNull(value, statistics => statistics.OtherWordsUsage);
+            asDumboDictionary.AddIfNotNull(value, statistics => statistics.SpeciesMentions);
+            asDumboDictionary.AddIfNotNull(value, statistics => statistics.MonsterMentions);
+            asDumboDictionary.AddIfNotNull(value, statistics => statistics.LocationMentions);
 
             switch (value)
             {

@@ -11,6 +11,7 @@ public class WorkspaceDbContext : DbContext
     public DbSet<StoredChapter> Chapters => Set<StoredChapter>();
     public DbSet<StoredCharacter> Characters => Set<StoredCharacter>();
     public DbSet<StatisticsRun> Runs => Set<StatisticsRun>();
+    public DbSet<StoredWikiEntity> WikiEntities => Set<StoredWikiEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -26,6 +27,14 @@ public class WorkspaceDbContext : DbContext
         {
             e.HasKey(x => x.WikiUrl);
             e.HasIndex(x => x.Name);
+        });
+
+        modelBuilder.Entity<StoredWikiEntity>(e =>
+        {
+            e.ToTable("WikiEntities");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Kind).HasConversion<string>();
+            e.HasIndex(x => x.Kind);
         });
 
         modelBuilder.Entity<StatisticsRun>(e =>
@@ -73,12 +82,44 @@ public class WorkspaceDbFactory : IDbContextFactory<WorkspaceDbContext>
     }
 
     /// <summary>
-    /// <c>EnsureCreated</c> only creates missing databases, so columns added after a workspace was
+    /// <c>EnsureCreated</c> only creates missing databases, so tables and columns added after a workspace was
     /// created are added here.
     /// </summary>
     private static void UpgradeSchema(WorkspaceDbContext context)
     {
         AddColumnIfMissing(context, "Chapters", "PatreonLocked", "INTEGER NOT NULL DEFAULT 0");
+        Execute(context, """
+            CREATE TABLE IF NOT EXISTS "WikiEntities" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_WikiEntities" PRIMARY KEY,
+                "Kind" TEXT NOT NULL,
+                "Name" TEXT NOT NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "Json" TEXT NOT NULL,
+                "DownloadedAt" TEXT NOT NULL,
+                "Excluded" INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS "IX_WikiEntities_Kind" ON "WikiEntities" ("Kind");
+            """);
+    }
+
+    private static void Execute(WorkspaceDbContext context, string sql)
+    {
+        var connection = context.Database.GetDbConnection();
+        var wasClosed = connection.State != System.Data.ConnectionState.Open;
+        if (wasClosed)
+            connection.Open();
+
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.ExecuteNonQuery();
+        }
+        finally
+        {
+            if (wasClosed)
+                connection.Close();
+        }
     }
 
     private static void AddColumnIfMissing(WorkspaceDbContext context, string table, string column, string definition)

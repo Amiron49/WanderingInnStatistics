@@ -23,20 +23,20 @@ namespace WanderingInnStats.Parsing.IndividualStatistic.Brackets
 		{
 			var withoutBrackets = match.Groups["content"].Value.Singularize(false);
 
-			if (wanderingInnDefinitions.Classes.Contains(withoutBrackets))
+			if (wanderingInnDefinitions.IsKnownClass(withoutBrackets))
 			{
 				statistics.Classes.Increment(withoutBrackets, hint: "class");
 				return true;
 			}
 
 
-			if (wanderingInnDefinitions.Skills.Contains(withoutBrackets))
+			if (wanderingInnDefinitions.IsKnownSkill(withoutBrackets))
 			{
 				statistics.Skills.Increment(new Skill(withoutBrackets, SkillType.Skill));
 				return true;
 			}
 
-			if (wanderingInnDefinitions.Spells.Contains(withoutBrackets))
+			if (wanderingInnDefinitions.IsKnownSpell(withoutBrackets))
 			{
 				statistics.Skills.Increment(new Skill(withoutBrackets, SkillType.Spell));
 				return true;
