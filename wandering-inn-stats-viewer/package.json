@@ -2,6 +2,9 @@
   "name": "wandering-inn-stats-viewer",
   "version": "0.0.0",
   "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "ng": "ng",
     "start": "ng serve --no-live-reload",
