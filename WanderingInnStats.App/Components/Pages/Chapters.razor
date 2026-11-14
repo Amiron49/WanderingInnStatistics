@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject ChapterService ChapterService
 @inject JobRunner Jobs
+@inject BrowserBridge Bridge
 
 <h1>Chapters</h1>
 
@@ -11,7 +12,15 @@
     <button class="btn btn-outline-primary" disabled="@(Jobs.IsRunning || _selected.Count == 0)" @onclick="DownloadSelected">Re-download selected (@_selected.Count) <EstimateHint Count="_selected.Count" /></button>
     <button class="btn btn-outline-secondary" disabled="@(Jobs.IsRunning || _all.Count == 0)" @onclick="DownloadAll">Re-download all (@_all.Count) <EstimateHint Count="_all.Count" /></button>
     <button class="btn btn-outline-secondary" disabled="@(Jobs.IsRunning)" @onclick="ScanDirty">Scan for dirty chapters</button>
+    <button class="btn btn-outline-warning" disabled="@(Jobs.IsRunning || _locked == 0 || !Bridge.IsConnected)" @onclick="FetchLockedViaBrowser"
+            title="@(Bridge.IsConnected ? "Load the Patreon-locked chapters in your logged-in browser" : "Connect the browser extension first (Settings → Browser bridge)")">
+        Fetch locked via browser (@_locked) <EstimateHint Count="_locked" />
+    </button>
 </div>
+@if (SettingsStore.BrowserFallback)
+{
+    <p class="small text-muted mt-n2">Downloads fall back to the browser for Patreon-locked chapters@(Bridge.IsConnected ? "" : " once it's connected").</p>
+}
 
 @if (_tocJobId is { } tocJobId && Jobs.Get(tocJobId) is { State: JobState.Failed, Exception: { } tocError } tocJob)
 {
@@ -73,6 +82,7 @@
         <option value="dirty">Dirty (after scan)</option>
         <option value="excluded">Excluded</option>
         <option value="not-in-toc">Not in TOC</option>
+        <option value="patreon-locked">Patreon-locked</option>
     </select>
     <span class="small text-muted">@Filtered.Count() of @_all.Count</span>
     @if (_selected.Count > 0)
@@ -112,7 +122,8 @@ else
                     <td class="text-end small">@(chapter.IsDownloaded ? (chapter.Length / 5.7).ToString("N0") : "")</td>
                     <td>
                         @if (!chapter.IsDownloaded) { <span class="badge bg-secondary">not downloaded</span> }
-                        @if (chapter.LastError != null) { <a class="badge bg-danger text-decoration-none" href="chapters/@chapter.Id" title="@FirstLine(chapter.LastError)">failed</a> }
+                        @if (chapter.PatreonLocked) { <span class="badge bg-warning text-dark" title="@FirstLine(chapter.LastError)">patreon-locked</span> }
+                        else if (chapter.LastError != null) { <a class="badge bg-danger text-decoration-none" href="chapters/@chapter.Id" title="@FirstLine(chapter.LastError)">failed</a> }
                         @if (chapter.HasOverride) { <span class="badge bg-info text-dark">override</span> }
                         @if (chapter.OverrideStale) { <span class="badge bg-warning text-dark">override stale</span> }
                         @if (_dirty?.Contains(chapter.Id) == true) { <span class="badge bg-danger">dirty</span> }
@@ -134,6 +145,7 @@ else
     private string _search = "";
     private string _filter = "all";
     private int _notDownloaded;
+    private int _locked;
     private bool _wasRunning;
     private int? _tocJobId;
 
@@ -150,6 +162,7 @@ else
             "dirty" => _dirty?.Contains(x.Id) == true,
             "excluded" => x.Excluded,
             "not-in-toc" => !x.InToc,
+            "patreon-locked" => x.PatreonLocked,
             _ => true
         });
 
@@ -158,6 +171,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         Jobs.Changed += OnJobChanged;
+        Bridge.Changed += OnBridgeChanged;
         _wasRunning = Jobs.IsRunning;
         await Reload();
     }
@@ -166,7 +180,10 @@ else
     {
         _all = await ChapterService.GetSummariesAsync();
         _notDownloaded = _all.Count(x => !x.IsDownloaded);
+        _locked = _all.Count(x => x.PatreonLocked);
     }
+
+    private void OnBridgeChanged() => InvokeAsync(StateHasChanged);
 
     private void OnJobChanged()
     {
@@ -235,7 +252,16 @@ else
         StartDownload("Re-download all", refs);
     }
 
-    private void StartDownload(string name, List<ChapterRef> refs)
+    private async Task FetchLockedViaBrowser()
+    {
+        var refs = await ChapterService.GetPatreonLockedAsync();
+        StartDownload("Fetch locked via browser", refs, DownloadMode.Browser);
+    }
+
+    private void StartDownload(string name, List<ChapterRef> refs) =>
+        StartDownload(name, refs, new DownloadMode(ChapterSource.Http, SettingsStore.BrowserFallback));
+
+    private void StartDownload(string name, List<ChapterRef> refs, DownloadMode mode)
     {
         Jobs.TryStart(name, async ct =>
         {
@@ -243,13 +269,13 @@ else
                 Jobs.Report($"{p.Done}/{p.Total} – {p.Current}" + (p.Failed > 0 ? $" ({p.Failed} failed)" : "")
                             + (p.Done < p.Total ? $" · {ScrapeEstimate.For(p.Total - p.Done)} left" : ""),
                     p.Total == 0 ? null : 100.0 * p.Done / p.Total));
-            var result = await ChapterService.DownloadAsync(refs, progress, ct);
+            var result = await ChapterService.DownloadAsync(refs, mode, progress, ct);
             if (result.Failed > 0)
             {
                 foreach (var (name, error) in await ChapterService.GetErrorsAsync(refs.Select(x => x.Url), ct))
                     Jobs.AddNote($"Failed: {name}", error);
             }
-            return $"{result.Succeeded} downloaded, {result.Failed} failed, {result.OverridesMarkedStale} overrides now stale";
+            return $"{result.Succeeded} downloaded, {result.Failed} failed ({result.PatreonLocked} Patreon-locked), {result.OverridesMarkedStale} overrides now stale";
         });
     }
 
@@ -271,5 +297,9 @@ else
 
     private static string FirstLine(string? text) => text?.Split('\n')[0] ?? "";
 
-    public void Dispose() => Jobs.Changed -= OnJobChanged;
+    public void Dispose()
+    {
+        Jobs.Changed -= OnJobChanged;
+        Bridge.Changed -= OnBridgeChanged;
+    }
 }

@@ -42,11 +42,28 @@ public record ChapterSummary(
     bool OverrideStale,
     bool Excluded,
     DateTime? DownloadedAt,
-    string? LastError);
+    string? LastError,
+    bool PatreonLocked);
 
 public record DownloadProgress(int Done, int Total, string Current, int Failed);
 
-public record DownloadResult(int Succeeded, int Failed, int OverridesMarkedStale);
+public record DownloadResult(int Succeeded, int Failed, int OverridesMarkedStale, int PatreonLocked);
+
+public enum ChapterSource
+{
+    /// <summary>Plain HTTP request from the app.</summary>
+    Http,
+
+    /// <summary>Loaded by the user's browser through the <see cref="BrowserBridge"/>.</summary>
+    Browser
+}
+
+/// <param name="BrowserFallback">With <see cref="ChapterSource.Http"/>: retry Patreon-locked chapters through the browser when it's connected.</param>
+public record DownloadMode(ChapterSource Source, bool BrowserFallback)
+{
+    public static readonly DownloadMode Http = new(ChapterSource.Http, false);
+    public static readonly DownloadMode Browser = new(ChapterSource.Browser, false);
+}
 
 public class ChapterService
 {
@@ -54,15 +71,20 @@ public class ChapterService
     /// <summary>Per download batch, only snapshot the first few failures; if everything fails they're all the same anyway.</summary>
     private const int MaxSnapshotsPerBatch = 3;
 
+    /// <summary>After this many browser fetches in a row that still got the Patreon prompt, the browser apparently isn't logged in.</summary>
+    private const int MaxBrowserLockedInARow = 3;
+
     private readonly WorkspaceDbFactory _dbFactory;
     private readonly WorkspaceOptions _options;
     private readonly ILogger<ChapterService> _logger;
+    private readonly BrowserBridge _bridge;
 
-    public ChapterService(WorkspaceDbFactory dbFactory, WorkspaceOptions options, ILogger<ChapterService> logger)
+    public ChapterService(WorkspaceDbFactory dbFactory, WorkspaceOptions options, ILogger<ChapterService> logger, BrowserBridge bridge)
     {
         _dbFactory = dbFactory;
         _options = options;
         _logger = logger;
+        _bridge = bridge;
     }
 
     public async Task<TocDiff> GetTocDiffAsync(CancellationToken cancellationToken = default)
@@ -178,7 +200,7 @@ public class ChapterService
             .Select(x => new ChapterSummary(
                 x.Id, x.Url, x.Volume, x.Name, x.TocOrder, x.InToc, x.Date, x.Comments,
                 x.RawText != null, x.RawText == null ? 0 : x.RawText.Length,
-                x.OverrideText != null, x.OverrideStale, x.Excluded, x.DownloadedAt, x.LastError))
+                x.OverrideText != null, x.OverrideStale, x.Excluded, x.DownloadedAt, x.LastError, x.PatreonLocked))
             .ToListAsync(cancellationToken);
     }
 
@@ -225,6 +247,16 @@ public class ChapterService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<ChapterRef>> GetPatreonLockedAsync(CancellationToken cancellationToken = default)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        return await db.Chapters
+            .Where(x => x.PatreonLocked)
+            .OrderBy(x => x.TocOrder)
+            .Select(x => new ChapterRef(x.Volume, x.Name, x.Url))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<List<ChapterRef>> GetRefsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
     {
         var idList = ids.ToList();
@@ -236,91 +268,161 @@ public class ChapterService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<DownloadResult> DownloadAsync(IReadOnlyList<ChapterRef> chapters, IProgress<DownloadProgress>? progress = null,
+    /// <summary>Downloads over plain HTTP, without the browser fallback.</summary>
+    public Task<DownloadResult> DownloadAsync(IReadOnlyList<ChapterRef> chapters, IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default) =>
+        DownloadAsync(chapters, DownloadMode.Http, progress, cancellationToken);
+
+    /// <summary>
+    /// Downloads <paramref name="chapters"/> one after the other and stores each result right away.
+    /// Stops (throws <see cref="ScrapeException"/>) when the server refuses us, when the browser extension is gone,
+    /// or when the browser keeps seeing the Patreon prompt, so it isn't logged in (or the tier is too low).
+    /// </summary>
+    public async Task<DownloadResult> DownloadAsync(IReadOnlyList<ChapterRef> chapters, DownloadMode mode, IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        int done = 0, failed = 0, stale = 0, snapshots = 0;
+        int done = 0, failed = 0, stale = 0, snapshots = 0, locked = 0, browserLockedInARow = 0;
+        var usedBrowser = false;
 
-        foreach (var chapterRef in chapters)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report(new DownloadProgress(done, chapters.Count, chapterRef.Name, failed));
-
-            Core.Chapter? downloaded = null;
-            string? error = null;
-            ScrapeBlockedException? blocked = null;
-            PageSnapshot? snapshot = null;
-            try
+            foreach (var chapterRef in chapters)
             {
-                downloaded = await Scrapper.GetChapter(chapterRef.Volume, chapterRef.Name, chapterRef.Url, cancellationToken);
-            }
-            catch (Exception e) when (e is not OperationCanceledException)
-            {
-                error = e.ToString();
-                blocked = e as ScrapeBlockedException;
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report(new DownloadProgress(done, chapters.Count, chapterRef.Name, failed));
 
-                // A blocked response carries its own body, so snapshotting it costs no extra request.
-                if (blocked != null || snapshots < MaxSnapshotsPerBatch)
+                Core.Chapter? downloaded = null;
+                string? error = null;
+                Exception? stopReason = null;
+                PageSnapshot? snapshot = null;
+                var isLocked = false;
+                var viaBrowser = false;
+                try
                 {
-                    snapshots++;
-                    snapshot = await ScrapeDiagnostics.SnapshotAsync(e, chapterRef.Url, Scrapper.ChapterSelectors, _options.DiagnosticsDirectory, cancellationToken);
-                    error += "\n\n" + snapshot;
+                    downloaded = await FetchChapterAsync(chapterRef, mode, () => viaBrowser = usedBrowser = true, cancellationToken);
                 }
-            }
-
-            await using (var db = _dbFactory.CreateDbContext())
-            {
-                var row = await db.Chapters.SingleOrDefaultAsync(x => x.Url == chapterRef.Url, cancellationToken);
-                if (row == null)
+                catch (Exception e) when (e is not OperationCanceledException)
                 {
-                    var maxOrder = await db.Chapters.Select(x => (int?)x.TocOrder).MaxAsync(cancellationToken) ?? -1;
-                    row = new StoredChapter
-                    {
-                        Url = chapterRef.Url,
-                        Volume = chapterRef.Volume,
-                        Name = chapterRef.Name,
-                        TocOrder = maxOrder + 1,
-                        Excluded = ExclusionRules.IsChapterExcludedByDefault(chapterRef.Name)
-                    };
-                    db.Chapters.Add(row);
-                }
+                    error = e.ToString();
+                    isLocked = e is PatreonLockedException;
+                    if (e is ScrapeBlockedException or BrowserBridgeUnavailableException)
+                        stopReason = e;
 
-                if (downloaded != null)
-                {
-                    if (row.OverrideText != null && row.RawText != null && row.RawText != downloaded.Text)
+                    // A blocked response carries its own body, so snapshotting it costs no extra request. Locked pages and
+                    // bridge failures need no snapshot: the message already says what's wrong.
+                    if (e is ScrapeBlockedException || (!isLocked && stopReason == null && snapshots < MaxSnapshotsPerBatch))
                     {
-                        row.OverrideStale = true;
-                        stale++;
+                        snapshots++;
+                        snapshot = await ScrapeDiagnostics.SnapshotAsync(e, chapterRef.Url, Scrapper.ChapterSelectors, _options.DiagnosticsDirectory, cancellationToken);
+                        error += "\n\n" + snapshot;
                     }
-
-                    row.RawText = downloaded.Text;
-                    row.Date = downloaded.Date;
-                    row.Comments = downloaded.Comments;
-                    row.DownloadedAt = DateTime.UtcNow;
-                    row.LastError = null;
-                    _logger.LogInformation("Downloaded {chapter}", chapterRef.Name);
                 }
-                else
-                {
-                    row.LastError = error;
+
+                if (stopReason is BrowserBridgeUnavailableException bridgeError)
+                    // Says nothing about the chapter itself, so its stored state is left alone.
+                    throw new ScrapeException(
+                        $"Stopped after {done} of {chapters.Count} chapters ({done - failed} downloaded, saved): {bridgeError.Message}",
+                        bridgeError, null, null);
+
+                if (viaBrowser)
+                    browserLockedInARow = isLocked ? browserLockedInARow + 1 : 0;
+                if (isLocked)
+                    locked++;
+
+                await SaveDownloadAsync(chapterRef, downloaded, error, isLocked, () => stale++, cancellationToken);
+                if (downloaded == null)
                     failed++;
-                    _logger.LogWarning("Failed downloading {chapter}: {error}", chapterRef.Name, error);
-                }
 
-                await db.SaveChangesAsync(cancellationToken);
+                done++;
+                progress?.Report(new DownloadProgress(done, chapters.Count, chapterRef.Name, failed));
+
+                // The server is refusing us (4xx/5xx or Cloudflare): stop instead of hammering it with the rest of the batch.
+                if (stopReason is ScrapeBlockedException blocked)
+                    throw new ScrapeException(
+                        $"Stopped after {done} of {chapters.Count} chapters ({done - failed} downloaded, saved): {blocked.Message}",
+                        blocked, snapshot, null);
+
+                if (browserLockedInARow >= MaxBrowserLockedInARow)
+                    throw new ScrapeException(
+                        $"Stopped after {done} of {chapters.Count} chapters ({done - failed} downloaded, saved): the browser also got the Patreon " +
+                        $"unlock prompt for the last {MaxBrowserLockedInARow} chapters. Log into wanderinginn.com with Patreon in that browser " +
+                        "(Settings → Browser bridge → Open login page) or check that your tier is high enough.",
+                        null, null, error);
             }
-
-            done++;
-            progress?.Report(new DownloadProgress(done, chapters.Count, chapterRef.Name, failed));
-
-            // The server is refusing us (4xx/5xx or Cloudflare): stop instead of hammering it with the rest of the batch.
-            if (blocked != null)
-                throw new ScrapeException(
-                    $"Stopped after {done} of {chapters.Count} chapters ({done - failed} downloaded, saved): {blocked.Message}",
-                    blocked, snapshot, null);
+        }
+        finally
+        {
+            if (usedBrowser)
+                await _bridge.FinishAsync();
         }
 
-        return new DownloadResult(done - failed, failed, stale);
+        return new DownloadResult(done - failed, failed, stale, locked);
+    }
+
+    private async Task<Core.Chapter> FetchChapterAsync(ChapterRef chapterRef, DownloadMode mode, Action usingBrowser, CancellationToken cancellationToken)
+    {
+        if (mode.Source == ChapterSource.Browser)
+        {
+            usingBrowser();
+            return await Scrapper.GetChapterViaBrowser(_bridge, chapterRef.Volume, chapterRef.Name, chapterRef.Url, cancellationToken);
+        }
+
+        try
+        {
+            return await Scrapper.GetChapter(chapterRef.Volume, chapterRef.Name, chapterRef.Url, cancellationToken);
+        }
+        catch (PatreonLockedException) when (mode.BrowserFallback && _bridge.IsConnected)
+        {
+            _logger.LogInformation("{chapter} is Patreon-locked; retrying via the browser", chapterRef.Name);
+            usingBrowser();
+            return await Scrapper.GetChapterViaBrowser(_bridge, chapterRef.Volume, chapterRef.Name, chapterRef.Url, cancellationToken);
+        }
+    }
+
+    private async Task SaveDownloadAsync(ChapterRef chapterRef, Core.Chapter? downloaded, string? error, bool isLocked, Action markedStale,
+        CancellationToken cancellationToken)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        var row = await db.Chapters.SingleOrDefaultAsync(x => x.Url == chapterRef.Url, cancellationToken);
+        if (row == null)
+        {
+            var maxOrder = await db.Chapters.Select(x => (int?)x.TocOrder).MaxAsync(cancellationToken) ?? -1;
+            row = new StoredChapter
+            {
+                Url = chapterRef.Url,
+                Volume = chapterRef.Volume,
+                Name = chapterRef.Name,
+                TocOrder = maxOrder + 1,
+                Excluded = ExclusionRules.IsChapterExcludedByDefault(chapterRef.Name)
+            };
+            db.Chapters.Add(row);
+        }
+
+        if (downloaded != null)
+        {
+            if (row.OverrideText != null && row.RawText != null && row.RawText != downloaded.Text)
+            {
+                row.OverrideStale = true;
+                markedStale();
+            }
+
+            row.RawText = downloaded.Text;
+            row.Date = downloaded.Date;
+            row.Comments = downloaded.Comments;
+            row.DownloadedAt = DateTime.UtcNow;
+            row.LastError = null;
+            row.PatreonLocked = false;
+            _logger.LogInformation("Downloaded {chapter}", chapterRef.Name);
+        }
+        else
+        {
+            row.LastError = error;
+            if (isLocked)
+                row.PatreonLocked = true;
+            _logger.LogWarning("Failed downloading {chapter}: {error}", chapterRef.Name, error);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task SetOverrideAsync(int id, string? overrideText)

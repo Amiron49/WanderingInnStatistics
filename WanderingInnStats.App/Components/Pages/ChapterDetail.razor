@@ -6,6 +6,7 @@
 @inject ChapterService ChapterService
 @inject ChapterPreviewService PreviewService
 @inject JobRunner Jobs
+@inject BrowserBridge Bridge
 
 <p><a href="chapters">← Chapters</a></p>
 
@@ -30,8 +31,10 @@
 
 @if (_chapter.LastError != null)
 {
-    <div class="alert alert-danger">
-        <strong>Last download failed.</strong>
+    <div class="alert @(_chapter.PatreonLocked ? "alert-warning" : "alert-danger")">
+        <strong>@(_chapter.PatreonLocked
+                    ? "Patreon-locked: the last download only got the unlock prompt. Use “Download via browser” with the browser extension connected."
+                    : "Last download failed.")</strong>
         <pre class="stack-trace mt-2 mb-0">@_chapter.LastError</pre>
     </div>
 }
@@ -41,7 +44,9 @@
 }
 
 <div class="d-flex gap-2 mb-3">
-    <button class="btn btn-outline-primary" disabled="@Jobs.IsRunning" @onclick="Redownload">@(_chapter.IsDownloaded ? "Re-download" : "Download")</button>
+    <button class="btn btn-outline-primary" disabled="@Jobs.IsRunning" @onclick="() => Redownload(false)">@(_chapter.IsDownloaded ? "Re-download" : "Download")</button>
+    <button class="btn btn-outline-warning" disabled="@(Jobs.IsRunning || !Bridge.IsConnected)" @onclick="() => Redownload(true)"
+            title="@(Bridge.IsConnected ? "Load the chapter in your logged-in browser" : "Connect the browser extension first (Settings → Browser bridge)")">Download via browser</button>
     <button class="btn btn-outline-secondary" @onclick="ToggleExcluded">@(_chapter.Excluded ? "Include in statistics" : "Exclude from statistics")</button>
 </div>
 
@@ -223,18 +228,19 @@
         }
     }
 
-    private void Redownload()
+    private void Redownload(bool viaBrowser)
     {
         if (_chapter == null) return;
         var chapterRef = new ChapterRef(_chapter.Volume, _chapter.Name, _chapter.Url);
-        Jobs.TryStart($"Download {_chapter.Name}", async ct =>
+        var mode = viaBrowser ? DownloadMode.Browser : new DownloadMode(ChapterSource.Http, SettingsStore.BrowserFallback);
+        Jobs.TryStart($"Download {_chapter.Name}" + (viaBrowser ? " via browser" : ""), async ct =>
         {
             Jobs.Report(chapterRef.Name);
-            var result = await ChapterService.DownloadAsync(new[] { chapterRef }, null, ct);
+            var result = await ChapterService.DownloadAsync(new[] { chapterRef }, mode, null, ct);
             if (result.Failed > 0)
                 foreach (var (name, error) in await ChapterService.GetErrorsAsync(new[] { chapterRef.Url }, ct))
                     Jobs.AddNote($"Failed: {name}", error);
-            return result.Failed > 0 ? "failed – see the error on the chapter page" : result.OverridesMarkedStale > 0 ? "downloaded – override now stale" : "downloaded";
+            return result.PatreonLocked > 0 ? "Patreon-locked – see the chapter page" : result.Failed > 0 ? "failed – see the error on the chapter page" : result.OverridesMarkedStale > 0 ? "downloaded – override now stale" : "downloaded";
         });
     }
 

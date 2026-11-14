@@ -38,6 +38,21 @@ public static class MauiProgram
         builder.Services.AddSingleton<JobRunner>();
         builder.Services.AddWanderingInnPipeline(options);
 
-        return builder.Build();
+        var app = builder.Build();
+
+        var bridge = app.Services.GetRequiredService<WanderingInnStats.Scrapping.BrowserBridge>();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await SettingsStore.StartBridgeAsync(bridge);
+            }
+            catch (Exception e)
+            {
+                Log.Error(e, "Starting the browser bridge failed");
+            }
+        });
+
+        return app;
     }
 }

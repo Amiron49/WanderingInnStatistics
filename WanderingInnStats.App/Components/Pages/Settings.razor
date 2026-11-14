@@ -1,5 +1,8 @@
 @page "/settings"
+@implements IDisposable
 @inject WorkspaceOptions Options
+@inject BrowserBridge Bridge
+@inject ChapterService ChapterService
 @inject LegacyImporter Importer
 @inject JobRunner Jobs
 
@@ -31,6 +34,78 @@
         @if (_savedMessage != null)
         {
             <span class="ms-2 text-success">@_savedMessage</span>
+        }
+    </div>
+</div>
+
+<div class="card mb-4" style="max-width: 800px" id="browser-bridge">
+    <div class="card-header d-flex align-items-center">
+        <strong>Browser bridge</strong>
+        <span class="ms-2 badge @(Bridge.IsConnected ? "bg-success" : "bg-secondary")">@(Bridge.IsConnected ? "connected" : "not connected")</span>
+        @if (Bridge.ConnectedUserAgent != null)
+        {
+            <span class="ms-2 small text-muted text-truncate">@Bridge.ConnectedUserAgent</span>
+        }
+    </div>
+    <div class="card-body">
+        <p class="small">
+            Patreon-locked chapters can't be downloaded by the app itself. A browser extension loads them in your own Chrome/Edge,
+            where you're logged into wanderinginn.com with Patreon, and hands the page back to the app.
+        </p>
+
+        @if (Bridge.LastError != null)
+        {
+            <div class="alert alert-danger small">@Bridge.LastError</div>
+        }
+
+        <h6>Setup (once)</h6>
+        <ol class="small">
+            <li>
+                In Chrome/Edge open <code>chrome://extensions</code> (<code>edge://extensions</code>), enable <em>Developer mode</em>,
+                click <em>Load unpacked</em> and pick
+                @if (_extensionFolder != null)
+                {
+                    <code>@_extensionFolder</code>
+                    <button class="btn btn-sm btn-link p-0 ms-1 align-baseline" @onclick="OpenExtensionFolder">open folder</button>
+                }
+                else
+                {
+                    <span>the <code>@BrowserBridge.ExtensionFolder</code> folder of your checkout</span>
+                }
+            </li>
+            <li>Click the extension's toolbar icon, paste the pairing token below, <em>Save &amp; connect</em>. The badge turns green and the header shows <em>Browser: connected</em>.</li>
+            <li>Log into wanderinginn.com with Patreon in that browser: <button class="btn btn-sm btn-link p-0 align-baseline" disabled="@(!Bridge.IsConnected)" @onclick="OpenLogin">open the site there</button>, open a locked chapter and use <em>Unlock with Patreon</em>.</li>
+        </ol>
+
+        <div class="row g-2 align-items-end mb-3">
+            <div class="col-md-7">
+                <label class="form-label">Pairing token</label>
+                <div class="input-group">
+                    <input class="form-control font-monospace" type="@(_showToken ? "text" : "password")" value="@_token" readonly />
+                    <button class="btn btn-outline-secondary" @onclick="() => _showToken = !_showToken">@(_showToken ? "Hide" : "Show")</button>
+                    <button class="btn btn-outline-secondary" @onclick="CopyToken">@(_tokenCopied ? "Copied ✓" : "Copy")</button>
+                    <button class="btn btn-outline-danger" @onclick="RegenerateToken" title="The extension has to be paired again afterwards">Regenerate</button>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Port</label>
+                <input class="form-control" type="number" min="1024" max="65535" @bind="_port" />
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-outline-primary w-100" disabled="@(_port == Bridge.Port && Bridge.IsListening)" @onclick="ApplyPort">Apply port</button>
+            </div>
+        </div>
+
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="bridge-fallback" checked="@_fallback" @onchange="ToggleFallback" />
+            <label class="form-check-label" for="bridge-fallback">Automatically fetch Patreon-locked chapters through the browser during normal downloads (when it's connected)</label>
+            <div class="form-text">Off: locked chapters are only marked; fetch them with <em>Fetch locked via browser</em> on the Chapters page.</div>
+        </div>
+
+        <button class="btn btn-outline-primary" disabled="@(Jobs.IsRunning || !Bridge.IsConnected)" @onclick="TestBridge">Test: load the table of contents through the browser</button>
+        @if (_bridgeMessage != null)
+        {
+            <span class="ms-2 small">@_bridgeMessage</span>
         }
     </div>
 </div>
@@ -73,13 +148,105 @@
     private string? _savedMessage;
     private LegacyImportResult? _import;
 
-    protected override void OnInitialized()
+    private string _token = "";
+    private bool _showToken;
+    private bool _tokenCopied;
+    private int _port;
+    private bool _fallback;
+    private string? _bridgeMessage;
+    private string? _extensionFolder;
+
+    protected override async Task OnInitializedAsync()
     {
         _root = Options.Root;
         _export = Options.ExportDirectory;
         _viewer = Options.ViewerDataDirectory;
         _copy = Options.CopyToViewer;
+
+        Bridge.Changed += OnBridgeChanged;
+        _port = SettingsStore.BridgePort;
+        _fallback = SettingsStore.BrowserFallback;
+        _extensionFolder = BrowserBridge.FindExtensionFolder(AppContext.BaseDirectory);
+        _token = await SettingsStore.GetOrCreateBridgeTokenAsync();
     }
+
+    private void OnBridgeChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task CopyToken()
+    {
+        await Clipboard.Default.SetTextAsync(_token);
+        _tokenCopied = true;
+    }
+
+    private async Task RegenerateToken()
+    {
+        _token = await SettingsStore.RegenerateBridgeTokenAsync();
+        _tokenCopied = false;
+        Bridge.Start(Bridge.Port, _token);
+        _bridgeMessage = "New token: paste it into the extension again.";
+    }
+
+    private void ApplyPort()
+    {
+        if (_port is < 1024 or > 65535)
+        {
+            _bridgeMessage = "The port must be between 1024 and 65535.";
+            return;
+        }
+
+        SettingsStore.BridgePort = _port;
+        Bridge.Start(_port, _token);
+        _bridgeMessage = Bridge.LastError ?? $"Listening on 127.0.0.1:{_port}. Set the same port in the extension.";
+    }
+
+    private void ToggleFallback(ChangeEventArgs e)
+    {
+        _fallback = e.Value is true;
+        SettingsStore.BrowserFallback = _fallback;
+    }
+
+    private void OpenExtensionFolder()
+    {
+        if (_extensionFolder != null)
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{_extensionFolder}\"") { UseShellExecute = true });
+    }
+
+    private async Task OpenLogin()
+    {
+        try
+        {
+            // A locked chapter shows the "Unlock with Patreon" button; fall back to the front page.
+            var locked = await ChapterService.GetPatreonLockedAsync();
+            await Bridge.OpenVisibleAsync(locked.FirstOrDefault()?.Url ?? WanderingInnStats.Scrapping.Scrapper.SiteUrl);
+            _bridgeMessage = "Opened in the browser.";
+        }
+        catch (Exception e)
+        {
+            _bridgeMessage = e.Message;
+        }
+    }
+
+    private void TestBridge()
+    {
+        _bridgeMessage = null;
+        Jobs.TryStart("Browser bridge test", async ct =>
+        {
+            Jobs.Report("Loading the table of contents in the browser…");
+            try
+            {
+                var toc = await WanderingInnStats.Scrapping.Scrapper.GetTocViaBrowser(Bridge, ct);
+                var message = $"The browser loaded the table of contents: {toc.Contents.Count} chapters";
+                await InvokeAsync(() => { _bridgeMessage = message; StateHasChanged(); });
+                return message;
+            }
+            finally
+            {
+                await Bridge.FinishAsync();
+            }
+        });
+    }
+
+    public void Dispose() => Bridge.Changed -= OnBridgeChanged;
 
     private void Save()
     {

@@ -96,3 +96,8 @@ main {
 .top-row ::deep .job-status {
     min-width: 0;
 }
+
+.top-row ::deep .browser-bridge-status {
+    flex: 0 0 auto;
+    margin-left: 0;
+}

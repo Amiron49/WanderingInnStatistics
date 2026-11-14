@@ -28,6 +28,9 @@ public class StoredChapter
     public DateTime? DownloadedAt { get; set; }
     public string? LastError { get; set; }
 
+    /// <summary>The last download only got Patreon's unlock prompt instead of the text.</summary>
+    public bool PatreonLocked { get; set; }
+
     public bool IsDownloaded => RawText != null;
     public string EffectiveText => OverrideText ?? RawText ?? "";
 
