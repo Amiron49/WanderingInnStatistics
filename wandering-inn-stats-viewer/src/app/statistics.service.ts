@@ -39,15 +39,29 @@ export class StatisticsService {
     return stats;
   }
 
+  /**
+   * When a volume really started, where its chapters' post dates say otherwise. The table of contents links Volume 1 to
+   * the rewrite (/2017/03/03/rw1-00/ …), which was uploaded within a day; the original chapters ran from 1.00 on 2016-07-27.
+   */
+  private static readonly volumeStarts: { [volume: string]: Date } = {
+    'Volume 1': new Date('2016-07-27T02:41:10Z')
+  };
+
+  private static volumeDates(volume: VolumeStatistic): number[] {
+    let dates = volume.Chapters.map(x => x.Chapter.Date.getTime());
+    let start = StatisticsService.volumeStarts[volume.Name.trim()];
+    return start ? [start.getTime(), ...dates] : dates;
+  }
+
   private calculateOverallVelocity(stats: WanderingInnStatistic): WritingVelocity {
-    let dates = stats.Volumes.flatMap(x => x.Chapters).map(x => x.Chapter.Date.getTime());
+    let dates = stats.Volumes.flatMap(x => StatisticsService.volumeDates(x));
     let minDate = Math.min(...dates);
     let maxDate = Math.max(...dates);
     return new WritingVelocity(new Date(minDate), new Date(maxDate), stats.Words, stats.Characters);
   }
 
   private calculateVolumeVelocity(stats: VolumeStatistic): WritingVelocity {
-    let dates = stats.Chapters.map(x => x.Chapter.Date.getTime());
+    let dates = StatisticsService.volumeDates(stats);
     let minDate = Math.min(...dates);
     let maxDate = Math.max(...dates);
     return new WritingVelocity(new Date(minDate), new Date(maxDate), stats.Words, stats.Characters);

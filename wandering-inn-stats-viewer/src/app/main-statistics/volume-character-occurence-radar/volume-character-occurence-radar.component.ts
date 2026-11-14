@@ -85,8 +85,17 @@ export class VolumeCharacterOccurenceRadarComponent {
     }
 
     return [
-      ["x", ...topCharacters.map(x => x.key.split(" ")[0])],
+      ["x", ...VolumeCharacterOccurenceRadarComponent.axisLabels(topCharacters.map(x => x.key))],
       ["Mentions", ...topData]
     ]
+  }
+
+  /**
+   * First names, or the full name where two characters share one ("Mrsha" and "Mrsha du Marquin"). billboard merges equal
+   * axis labels, which drew the fifth value on the first axis.
+   */
+  static axisLabels(names: string[]): string[] {
+    const firstName = (name: string) => name.split(" ")[0];
+    return names.map(name => names.filter(other => firstName(other) == firstName(name)).length > 1 ? name : firstName(name));
   }
 }
