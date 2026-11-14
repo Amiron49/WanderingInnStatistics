@@ -173,3 +173,15 @@ h1:focus {
     border-top: 1px dashed #e0b4b4;
     padding-top: 0.5rem;
 }
+
+/* Error texts carry regexes, excerpts and urls without spaces; wrap them instead of widening the page. */
+.exception-details,
+.run-error {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.exception-details .exception-message,
+.run-error {
+    white-space: pre-wrap;
+}

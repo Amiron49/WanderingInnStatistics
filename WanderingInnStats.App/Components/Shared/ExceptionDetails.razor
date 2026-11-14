@@ -22,7 +22,7 @@
                 }
                 <code class="fw-bold">@ex.GetType().FullName</code>
             </div>
-            <div class="mb-1" style="white-space: pre-wrap">@ex.Message</div>
+            <div class="mb-1 exception-message">@ex.Message</div>
 
             @if (ex is ScrapeException scrape)
             {
