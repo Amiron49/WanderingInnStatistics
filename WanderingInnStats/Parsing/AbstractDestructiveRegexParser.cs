@@ -38,7 +38,9 @@ namespace WanderingInnStats.Parsing
 			foreach (Match match in matches.OrderBy(x => x.Index))
 			{
 				if (match.Length > 1000)
-					throw new Exception("Too much");
+					throw new InvalidOperationException(
+						$"{Name}: regex '{regex}' matched {match.Length:N0} chars at {match.Index:N0} (max 1,000), probably an unclosed bracket. " +
+						$"Match starts with \"{Shorten(match.Value)}\"");
 
 				if (match.Length > 100)
 				{
@@ -56,6 +58,9 @@ namespace WanderingInnStats.Parsing
 
 			return updatedContent;
 		}
+
+		private static string Shorten(string value, int max = 200) =>
+			Regex.Replace(value.Length > max ? value[..max] + "…" : value, @"\s+", " ");
 
 		protected abstract bool HandleMatch(Match match, WanderingInnStatistics statistics, string original, WanderingInnDefinitions wanderingInnDefinitions);
 	}

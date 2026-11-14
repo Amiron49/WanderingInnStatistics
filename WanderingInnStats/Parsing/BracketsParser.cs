@@ -101,18 +101,27 @@ namespace WanderingInnStats.Parsing
 					{
 						var (a, b) = x;
 
-						var aStart = a.individualMatch.Index;
-						var aEnd = aStart + a.individualMatch.Length;
-						var bStart = b.individualMatch.Index;
-						var bEnd = bStart + b.individualMatch.Length;
-
-						var aWithinB = (aStart > bStart && aStart < bEnd) || (aEnd > bStart && aEnd < bEnd);
-						var bWithinA = (bStart > aStart && bStart < aEnd) || (bEnd > aStart && bEnd < aEnd);
-
-						return aWithinB || bWithinA;
+						return Overlaps(a.individualMatch, b.individualMatch);
 					});
 
-			return grouped;	
+			return grouped;
+		}
+
+		/// <summary>
+		/// Whether two matches share any text. Identical spans count: "Mrsha" matched by both "Mrsha" and "Mrsha du Marquin"
+		/// (via its first name) used to be counted for both characters.
+		/// </summary>
+		internal static bool Overlaps(Match a, Match b) =>
+			a.Index < b.Index + b.Length && b.Index < a.Index + a.Length;
+
+		/// <summary>How directly a match names the character: its own name beats an alias, which beats a part of its name.</summary>
+		internal static int MatchPriority(CharacterDefinition character, Match match)
+		{
+			if (match.Value == character.Name)
+				return 2;
+			if (character.Aliases?.Contains(match.Value) == true)
+				return 1;
+			return 0;
 		}
 		
 		private static IEnumerable<(CharacterDefinition Key, Match individualMatch)> AttemptToClean(IEnumerable<List<(CharacterDefinition Key, Match individualMatch)>> duplicateRidden)
@@ -125,17 +134,38 @@ namespace WanderingInnStats.Parsing
 					continue;
 				}
 
-				var orderByDescending = overlapList.OrderByDescending(x => x.individualMatch.Length).ToList();
+				// The longest match wins; on equal length, the character whose own name (then alias) was matched:
+				// "Mrsha" goes to Mrsha, not also to "Mrsha du Marquin" (Root) via its first name.
+				var orderByDescending = overlapList
+					.OrderByDescending(x => x.individualMatch.Length)
+					.ThenByDescending(x => MatchPriority(x.Key, x.individualMatch))
+					.ToList();
 
                 var first = orderByDescending.First();
-                var second = orderByDescending.Skip(1).First();
-                
-                if (first.individualMatch.Length == second.individualMatch.Length && first.individualMatch.Value.Replace(" ", "").Length == second.individualMatch.Value.Replace(" ", "").Length)
-					throw new Exception("Can't decide");
-				
-				var mostSignificant = first;
+                var firstPriority = MatchPriority(first.Key, first.individualMatch);
+                var tied = orderByDescending
+	                .TakeWhile(x => x.individualMatch.Length == first.individualMatch.Length && MatchPriority(x.Key, x.individualMatch) == firstPriority)
+	                .ToList();
 
-				yield return mostSignificant;
+                // The same text matched equally well for several characters, e.g. a bare family name ("Solstice" for Erin and
+                // Gregori Solstice): counted for each of them, as before.
+                if (tied.Count > 1 && tied.All(x => x.individualMatch.Index == first.individualMatch.Index))
+                {
+	                foreach (var each in tied)
+		                yield return each;
+	                continue;
+                }
+
+                if (tied.Count > 1)
+                {
+	                var second = tied[1];
+					throw new InvalidOperationException(
+						$"Can't decide between overlapping character mentions '{first.Key.Name}' (\"{first.individualMatch.Value}\" at {first.individualMatch.Index:N0}) " +
+						$"and '{second.Key.Name}' (\"{second.individualMatch.Value}\" at {second.individualMatch.Index:N0}): both match the same length. " +
+						"Exclude one of the characters on the Wiki page, or give one a distinguishing alias.");
+                }
+
+				yield return first;
 			}
 		}
 
@@ -163,7 +193,8 @@ namespace WanderingInnStats.Parsing
 
 			if (collisions.Any())
 			{
-				throw new Exception("Got char collisions in a chapter");
+				throw new InvalidOperationException("Got character mention collisions in a chapter: " +
+				                                    string.Join("; ", collisions.Where(x => x.Count > 1).Select(x => string.Join(" ~ ", x.Select(y => $"{y.Key.Name} (\"{y.individualMatch.Value}\")")))));
 			}
 		}
 	}

@@ -1,0 +1,19 @@
+@switch (Status)
+{
+    case RunStatus.Succeeded:
+        <span class="badge bg-success">Succeeded</span>
+        break;
+    case RunStatus.Failed:
+        <span class="badge bg-danger">Failed</span>
+        break;
+    case RunStatus.Cancelled:
+        <span class="badge bg-warning text-dark">Cancelled</span>
+        break;
+    default:
+        <span class="badge bg-secondary">Running</span>
+        break;
+}
+
+@code {
+    [Parameter] public RunStatus Status { get; set; }
+}

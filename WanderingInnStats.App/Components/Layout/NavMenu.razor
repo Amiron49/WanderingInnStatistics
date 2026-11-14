@@ -1,0 +1,42 @@
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Wandering Inn Stats</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Overview
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="chapters">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Chapters
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="wiki">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Wiki
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="statistics">
+                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Statistics
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="jobs">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Jobs
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="settings">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Settings
+            </NavLink>
+        </div>
+    </nav>
+</div>

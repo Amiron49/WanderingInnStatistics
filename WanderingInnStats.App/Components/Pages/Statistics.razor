@@ -1,0 +1,206 @@
+﻿@page "/statistics"
+@using System.Diagnostics
+@using Microsoft.EntityFrameworkCore
+@using Serilog
+@using Serilog.Extensions.Logging
+@implements IDisposable
+@inject StatisticsPipeline Pipeline
+@inject WorkspaceDbFactory DbFactory
+@inject WorkspaceOptions Options
+@inject JobRunner Jobs
+@inject LogBuffer Logs
+@inject ChapterService ChapterService
+
+<h1>Statistics</h1>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <button class="btn btn-primary w-100 mb-3" disabled="@Jobs.IsRunning" @onclick="Run">Generate statistics</button>
+
+                <div class="form-check mb-1">
+                    <input class="form-check-input" type="checkbox" id="copyViewer" @bind="Options.CopyToViewer" @bind:after="SaveSettings"
+                           disabled="@string.IsNullOrWhiteSpace(Options.ViewerDataDirectory)" />
+                    <label class="form-check-label small" for="copyViewer">Copy output into the viewer</label>
+                </div>
+                @if (string.IsNullOrWhiteSpace(Options.ViewerDataDirectory))
+                {
+                    <p class="small text-muted">Set the viewer folder in <a href="settings">Settings</a> to enable this.</p>
+                }
+
+                <div class="stage-list mt-3">
+                    @foreach (var stage in StatisticsPipeline.Stages)
+                    {
+                        <div class="stage @StageClass(stage)">@StageLabel(stage)</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        @if (_result != null)
+        {
+            <div class="alert alert-success">
+                <strong>Done.</strong> @_result.ChapterCount chapters, @_result.CharacterCount characters, <strong>@_result.UnknownCount</strong> unknowns.
+                <div class="small mt-1">
+                    <code>@_result.StatisticsFile</code><br />
+                    <code>@_result.DefinitionsFile</code>
+                    @foreach (var copy in _result.CopiedTo)
+                    {
+                        <br /><span>copied to <code>@copy</code></span>
+                    }
+                </div>
+                <button class="btn btn-sm btn-outline-success mt-2" @onclick="OpenExportFolder">Open export folder</button>
+            </div>
+        }
+
+        <div class="d-flex align-items-center mb-1">
+            <strong>Log</strong>
+            <span class="small text-muted ms-2">Info and above. The full debug log is written to <code>@Options.LogFile</code>.</span>
+            <button class="btn btn-sm btn-link ms-auto" @onclick="Logs.Clear">Clear</button>
+        </div>
+        <LogTail Lines="300" />
+    </div>
+</div>
+
+@if (_error != null)
+{
+    @* Full width below the controls and log: error texts are long and would otherwise squeeze or widen the log column. *@
+    <div class="alert alert-danger mt-3">
+        <strong>Failed during @(_stage is { } s ? StageLabel(s) : "startup").</strong>
+        <ExceptionDetails Exception="_error" Context="@($"Statistics generation, stage {_stage}")" />
+    </div>
+}
+
+<h4 class="mt-4">Run history</h4>
+<table class="table table-sm">
+    <thead><tr><th>Started</th><th>Duration</th><th>Status</th><th class="text-end">Chapters</th><th class="text-end">Characters</th><th class="text-end">Unknowns</th><th>Error</th></tr></thead>
+    <tbody>
+    @foreach (var run in _runs)
+    {
+        <tr>
+            <td>@run.StartedAt.ToLocalTime().ToString("g")</td>
+            <td>@(run.FinishedAt is { } f ? (f - run.StartedAt).ToString(@"mm\:ss") : "")</td>
+            <td><RunStatusBadge Status="run.Status" /></td>
+            <td class="text-end">@run.ChapterCount</td>
+            <td class="text-end">@run.CharacterCount</td>
+            <td class="text-end">@run.UnknownCount</td>
+            <td class="small text-danger run-error"><ChapterLinkedText Text="@run.Error" Ids="_chapterIds" Tab="Fixed" /></td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@code {
+    private List<StatisticsRun> _runs = new();
+    private PipelineStage? _stage;
+    private PipelineResult? _result;
+    private Exception? _error;
+    private IReadOnlyDictionary<string, int> _chapterIds = new Dictionary<string, int>();
+    private bool _wasRunning;
+
+    // Stage state survives page navigation while a run is in progress.
+    private static PipelineStage? _currentStage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Jobs.Changed += OnJobChanged;
+        _wasRunning = Jobs.IsRunning;
+        _stage = _currentStage;
+        await LoadRuns();
+    }
+
+    private async Task LoadRuns()
+    {
+        await using var db = DbFactory.CreateDbContext();
+        _runs = await db.Runs.AsNoTracking().OrderByDescending(x => x.StartedAt).Take(25).ToListAsync();
+        _chapterIds = _runs.Any(x => x.Error != null) ? await ChapterService.GetIdsByNameAsync() : new Dictionary<string, int>();
+    }
+
+    private void Run()
+    {
+        _result = null;
+        _error = null;
+
+        Jobs.TryStart("Statistics generation", async ct =>
+        {
+            // Mirror the CLI: a fresh debug-level log file per run, plus Info lines into the UI.
+            if (File.Exists(Options.LogFile))
+                File.Delete(Options.LogFile);
+
+            await using var runLogger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.File(Options.LogFile)
+                .WriteTo.Sink(Logs)
+                .CreateLogger();
+            using var loggerFactory = new SerilogLoggerFactory(runLogger);
+            var logger = loggerFactory.CreateLogger("Statistics");
+
+            var progress = new Progress<PipelineStage>(stage =>
+            {
+                _currentStage = stage;
+                Jobs.Report(StageLabel(stage), 100.0 * (int)stage / StatisticsPipeline.Stages.Count);
+                InvokeAsync(() => { _stage = stage; StateHasChanged(); });
+            });
+
+            try
+            {
+                var result = await Pipeline.RunAsync(logger, progress, ct);
+                await InvokeAsync(() => { _result = result; StateHasChanged(); });
+                return $"{result.UnknownCount} unknowns";
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                await InvokeAsync(() => { _error = e; StateHasChanged(); });
+                throw;
+            }
+            finally
+            {
+                _currentStage = null;
+            }
+        });
+    }
+
+    private void OnJobChanged()
+    {
+        var finished = _wasRunning && !Jobs.IsRunning;
+        _wasRunning = Jobs.IsRunning;
+        InvokeAsync(async () =>
+        {
+            if (finished)
+            {
+                await LoadRuns();
+                _stage = Jobs.State == JobState.Succeeded ? PipelineStage.Done : _stage;
+            }
+            StateHasChanged();
+        });
+    }
+
+    private string StageClass(PipelineStage stage)
+    {
+        if (_stage == null) return "";
+        if (_stage == stage) return "active";
+        return stage < _stage ? "done" : "";
+    }
+
+    private static string StageLabel(PipelineStage stage) => stage switch
+    {
+        PipelineStage.Loading => "Load chapters & characters",
+        PipelineStage.CharacterSanityCheck => "Character sanity check",
+        PipelineStage.ChapterFixing => "Chapter fixing",
+        PipelineStage.FirstPass => "First pass (infer definitions)",
+        PipelineStage.SecondPass => "Second pass (statistics)",
+        PipelineStage.Grouping => "Group by volume",
+        PipelineStage.Exporting => "Export jsons",
+        _ => stage.ToString()
+    };
+
+    private void SaveSettings() => SettingsStore.Save(Options);
+
+    private void OpenExportFolder() =>
+        Process.Start(new ProcessStartInfo { FileName = Options.EffectiveExportDirectory, UseShellExecute = true });
+
+    public void Dispose() => Jobs.Changed -= OnJobChanged;
+}

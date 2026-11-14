@@ -1,4 +1,4 @@
-<table *ngIf="genericEntities" mat-table [dataSource]="genericEntities" matSort (matSortChange)="onSortChange($event)">
+<table mat-table [dataSource]="genericEntities()" matSort (matSortChange)="onSortChange($event)">
   <ng-container matColumnDef="key">
     <th mat-header-cell *matHeaderCellDef mat-sort-header sortActionDescription="Sort by Name">Name</th>
     <td mat-cell *cdkCellDef="let element"> <a [routerLink]="element.key">{{element.key}}</a></td>

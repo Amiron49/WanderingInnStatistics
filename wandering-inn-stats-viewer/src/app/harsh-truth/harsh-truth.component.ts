@@ -1,15 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import {ChangeDetectionStrategy, Component} from '@angular/core';
 
 @Component({
   selector: 'app-harsh-truth',
   templateUrl: './harsh-truth.component.html',
-  styleUrls: ['./harsh-truth.component.scss']
+  styleUrls: ['./harsh-truth.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class HarshTruthComponent implements OnInit {
-
-  constructor() { }
-
-  ngOnInit(): void {
-  }
-
+export class HarshTruthComponent {
 }

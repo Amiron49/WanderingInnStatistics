@@ -1,0 +1,18 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/!Misc/">
+    <File Path="readme.md" />
+  </Folder>
+  <Project Path="WanderingInnStats.App/WanderingInnStats.App.csproj" />
+  <Project Path="WanderingInnStats.Cli/WanderingInnStats.Cli.csproj" />
+  <Project Path="WanderingInnStats.Core/WanderingInnStats.Core.csproj" />
+  <Project Path="WanderingInnStats.Pipeline/WanderingInnStats.Pipeline.csproj" />
+  <Project Path="WanderingInnStats.Scrapping/Tests/WanderingInnStats.Scrapping.Tests.csproj" />
+  <Project Path="WanderingInnStats.Scrapping/WanderingInnStats.Scrapping.csproj" />
+  <Project Path="WanderingInnStats.Tests/WanderingInnStats.Tests.csproj" />
+  <Project Path="WanderingInnStats/WanderingInnStats.csproj" />
+</Solution>

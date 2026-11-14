@@ -1,0 +1,100 @@
+﻿@page "/"
+@inject ChapterService Chapters
+@inject WikiService Wiki
+@inject LegacyImporter Importer
+@inject WorkspaceDbFactory DbFactory
+@inject WorkspaceOptions Options
+@inject NavigationManager Nav
+
+<h1>Overview</h1>
+
+@if (_loading)
+{
+    <p>Loading…</p>
+}
+else
+{
+    @if (_empty && Importer.HasLegacyData)
+    {
+        <div class="alert alert-info">
+            The workspace is empty, but there are legacy caches (<code>dump.json</code> / <code>characters-raw.json</code>) in <code>@Options.Root</code>.
+            <a href="settings">Import them on the Settings page.</a>
+        </div>
+    }
+
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Chapters</h5>
+                    <p class="display-6">@_downloaded <small class="text-muted fs-6">/ @_totalChapters downloaded</small></p>
+                    <ul class="list-unstyled small mb-0">
+                        <li>@_failed failed</li>
+                        <li>@_overrides with override (@_stale stale)</li>
+                        <li>@_excluded excluded</li>
+                    </ul>
+                </div>
+                <div class="card-footer"><a href="chapters">Manage chapters →</a></div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Wiki characters</h5>
+                    <p class="display-6">@_characters</p>
+                    <p class="small mb-1">@_entities</p>
+                    <p class="small mb-0">Last download: @(_lastWiki?.ToLocalTime().ToString("g") ?? "never")</p>
+                </div>
+                <div class="card-footer"><a href="wiki">Manage wiki →</a></div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Last statistics run</h5>
+                    @if (_lastRun == null)
+                    {
+                        <p>Never</p>
+                    }
+                    else
+                    {
+                        <p class="mb-1"><RunStatusBadge Status="_lastRun.Status" /> @_lastRun.StartedAt.ToLocalTime().ToString("g")</p>
+                        <p class="small mb-0">@_lastRun.ChapterCount chapters, @(_lastRun.UnknownCount?.ToString() ?? "?") unknowns</p>
+                    }
+                </div>
+                <div class="card-footer"><a href="statistics">Generate statistics →</a></div>
+            </div>
+        </div>
+    </div>
+
+    <p class="mt-4 small text-muted">Workspace: <code>@Options.DatabaseFile</code></p>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _empty;
+    private int _totalChapters, _downloaded, _failed, _overrides, _stale, _excluded, _characters;
+    private DateTime? _lastWiki;
+    private string _entities = "";
+    private StatisticsRun? _lastRun;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var summaries = await Chapters.GetSummariesAsync();
+        _totalChapters = summaries.Count;
+        _downloaded = summaries.Count(x => x.IsDownloaded);
+        _failed = summaries.Count(x => x.LastError != null);
+        _overrides = summaries.Count(x => x.HasOverride);
+        _stale = summaries.Count(x => x.OverrideStale);
+        _excluded = summaries.Count(x => x.Excluded);
+
+        await using var db = DbFactory.CreateDbContext();
+        _characters = db.Characters.Count();
+        _lastWiki = db.Characters.Max(x => (DateTime?)x.DownloadedAt);
+        var info = await Wiki.GetSourceInfoAsync();
+        _entities = string.Join(" · ", info.Where(x => x.Source != WikiSource.Characters).Select(x => $"{x.Count} {x.Source.ToString().ToLowerInvariant()}"));
+        _lastRun = db.Runs.OrderByDescending(x => x.StartedAt).FirstOrDefault();
+        _empty = _totalChapters == 0 && _characters == 0;
+        _loading = false;
+    }
+}

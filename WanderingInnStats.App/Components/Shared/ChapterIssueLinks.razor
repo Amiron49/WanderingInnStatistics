@@ -1,0 +1,58 @@
+@using WanderingInnStats.Core
+@inject ChapterService ChapterService
+
+@* Jump links to the chapters an exception (chain) is about. Renders nothing when it isn't about specific chapters. *@
+
+@if (_issues.Count > 0)
+{
+    <div class="card card-body py-2 mb-2 small chapter-issues">
+        <div class="fw-bold mb-1">@(_issues.Count == 1 ? "Chapter involved" : $"{_issues.Count} chapters involved")</div>
+        <ul class="mb-0 ps-3">
+            @foreach (var issue in _issues)
+            {
+                <li>
+                    @if (_ids.TryGetValue(issue.Url, out var id))
+                    {
+                        <a href="@ChapterHref(id, issue.Tab)" class="fw-semibold">@issue.Name</a>
+                    }
+                    else
+                    {
+                        <span class="fw-semibold">@issue.Name</span>
+                        <a href="@issue.Url" target="_blank" class="ms-1" title="Not in the workspace; opens the site">↗</a>
+                    }
+                    @if (issue.Detail != null)
+                    {
+                        <span class="text-muted ms-1">@issue.Detail</span>
+                    }
+                </li>
+            }
+        </ul>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public Exception Exception { get; set; } = null!;
+
+    private List<ChapterIssue> _issues = new();
+    private Dictionary<string, int> _ids = new();
+    private Exception? _loadedFor;
+
+    public static string ChapterHref(int id, string? tab) =>
+        tab == null ? $"chapters/{id}" : $"chapters/{id}?tab={Uri.EscapeDataString(tab)}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ReferenceEquals(_loadedFor, Exception))
+            return;
+        _loadedFor = Exception;
+
+        // An AggregateException of chapter failures names the same chapter once per failure; show each chapter once.
+        _issues = ExceptionDetails.Chain(Exception)
+            .OfType<IHasChapterIssues>()
+            .SelectMany(x => x.ChapterIssues)
+            .GroupBy(x => x.Url)
+            .Select(g => g.First())
+            .ToList();
+        _ids = _issues.Count == 0 ? new() : await ChapterService.GetIdsByUrlAsync(_issues.Select(x => x.Url));
+    }
+}

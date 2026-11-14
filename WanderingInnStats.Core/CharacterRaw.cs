@@ -14,6 +14,8 @@ namespace WanderingInnStats.Core
 		public string[] FamilyMembers { get; init; }
 		public string[] Occupations { get; init; }
 		public string? Residence { get; init; }
+		public string? FirstAppearance { get; init; }
+		public string? Status { get; init; }
 		public string WikiUrl { get; init; }
 	}
 }

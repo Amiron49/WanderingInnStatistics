@@ -1,0 +1,5 @@
+// The legacy (pre-MDC) list styled nav links like plain list text; keep that look.
+mat-nav-list a {
+  color: inherit;
+  text-decoration: none;
+}

@@ -176,10 +176,28 @@ namespace WanderingInnStats.Parsing
 
         public string JsonEquivalent => Name;
 
-        private static string[] ManualCommonWords = { "The", "Soldier", "Queen", "King", "Emperor", "Lord", "Lady", "Boy", "Girl", "One", "Two", "Single", "Ser", "Sir" };
+        private static string[] ManualCommonWords = { "The", "Soldier", "Queen", "King", "Emperor", "Lord", "Lady", "Boy", "Girl", "One", "Two", "Single", "Ser", "Sir",
+            // Title-like names on wiki.wanderinginn.com: "First Queen", "Tree of Vale", "Crusader 57", "Grand Design of Isthekenous".
+            "Of", "First", "Grand", "Tree", "Crusader" };
 
-        private static HashSet<string> CommonWordsToIgnore = new(RaceHelper.Races.Concat(RaceHelper.Races.Reverse().Skip(1).Select(x => x.ToLower()))
-            .Concat(ManualCommonWords).Concat(ManualCommonWords.Select(x => x.ToLower())));
+        private static (int Version, HashSet<string> Words)? _commonWords;
+
+        /// <summary>Species names and <see cref="ManualCommonWords"/>; rebuilt when <see cref="RaceHelper.Configure"/> changed the species.</summary>
+        private static HashSet<string> CommonWordsToIgnore
+        {
+            get
+            {
+                var cached = _commonWords;
+                if (cached is { } c && c.Version == RaceHelper.Version)
+                    return c.Words;
+
+                var races = RaceHelper.Races;
+                var words = new HashSet<string>(races.Concat(races.Select(x => x.ToLower()))
+                    .Concat(ManualCommonWords).Concat(ManualCommonWords.Select(x => x.ToLower())));
+                _commonWords = (RaceHelper.Version, words);
+                return words;
+            }
+        }
 
     }
 
@@ -187,9 +205,7 @@ namespace WanderingInnStats.Parsing
     {
         public static string RegexSafe(this string input)
         {
-            return input
-                .Replace("]", @"\]")
-                .Replace("[", @"\[");
+            return Regex.Escape(input);
         }
     }
 

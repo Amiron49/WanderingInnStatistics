@@ -16,7 +16,7 @@ namespace WanderingInnStats.Parsing.IndividualStatistic.Brackets
 
         public ClassInference(ILogger logger) : base(logger)
 		{
-			var racesGigaString = "((" + string.Join(")|(", RaceHelper.Races) + "))";
+			var racesGigaString = "((" + string.Join(")|(", RaceHelper.Races.Select(Regex.Escape)) + "))";
 
 			Regexes = new Regex[]
 			{
@@ -42,7 +42,8 @@ namespace WanderingInnStats.Parsing.IndividualStatistic.Brackets
 
     public static class RaceHelper
     {
-        public static string[] Races =
+        /// <summary>The species known before the wiki was used as ground truth; always part of <see cref="Races"/>.</summary>
+        public static readonly IReadOnlyList<string> BaseRaces = new[]
         {
             "Antinium",
             "Beastkin",
@@ -72,5 +73,43 @@ namespace WanderingInnStats.Parsing.IndividualStatistic.Brackets
             "Vampire",
             "male"
         };
+
+        private static readonly object Lock = new();
+        private static string[] _races = BaseRaces.ToArray();
+
+        /// <summary>Singular species names, used to recognise "Drake [Guardsman]" and as words that don't identify a character.</summary>
+        public static string[] Races
+        {
+            get
+            {
+                lock (Lock)
+                    return _races;
+            }
+        }
+
+        /// <summary>Bumped by <see cref="Configure"/>, so caches built from <see cref="Races"/> know to rebuild.</summary>
+        public static int Version { get; private set; }
+
+        /// <summary>
+        /// Sets <see cref="Races"/> to <see cref="BaseRaces"/> plus the singular of each single-word, capitalised name in
+        /// <paramref name="wikiSpecies"/>. Call before creating parsers.
+        /// </summary>
+        public static void Configure(IEnumerable<string> wikiSpecies)
+        {
+            var extra = wikiSpecies
+                .Select(x => x.Trim())
+                .Where(x => x.Length >= 3 && char.IsUpper(x[0]) && !x.Contains(' '))
+                .Select(x => x.Singularize(false))
+                .Where(x => x.Length >= 3);
+
+            var races = BaseRaces.Concat(extra).Distinct().ToArray();
+            lock (Lock)
+            {
+                if (races.SequenceEqual(_races))
+                    return;
+                _races = races;
+                Version++;
+            }
+        }
     }
 }

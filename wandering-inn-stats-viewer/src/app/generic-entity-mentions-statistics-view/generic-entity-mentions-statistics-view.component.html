@@ -1,5 +1,5 @@
 TODO weighted mentions against max mantions of Volume
-<ng-container *ngIf="genericEntityStatistic">
+@if (genericEntityStatistic(); as genericEntityStatistic) {
   <h1>{{genericEntityStatistic.name}}</h1>
   <ul>
     <li>Total mentions: {{genericEntityStatistic.mentions}}</li>
@@ -7,9 +7,8 @@ TODO weighted mentions against max mantions of Volume
   </ul>
   <div class="row">
     <app-smart-chart [options]="genericEntityStatistic.volumeMentionChart"
-                     [minWidth]="900"></app-smart-chart>
+    [minWidth]="900"></app-smart-chart>
   </div>
-
   <table mat-table [dataSource]="genericEntityStatistic.allChaptersContaining" >
     <ng-container matColumnDef="Volume">
       <th mat-header-cell *matHeaderCellDef>Volume</th>
@@ -21,16 +20,6 @@ TODO weighted mentions against max mantions of Volume
     </ng-container>
     <tr mat-header-row *matHeaderRowDef="shownColumns"></tr>
     <tr mat-row *matRowDef="let row; columns: shownColumns"></tr>
-<!--    <tr>-->
-<!--      <th>Volume</th>-->
-<!--      <th>Chapter</th>-->
-<!--      <th>Link</th>-->
-<!--    </tr>-->
-<!--    <tr *ngFor="let chapter of genericEntityStatistic.allChaptersContaining">-->
-<!--      <td>{{chapter.Chapter.Volume}}</td>-->
-<!--      <td>{{chapter.Chapter.Name}}</td>-->
-<!--      <td><a [href]="chapter.Chapter.Url" target="_blank">(open chapter)</a></td>-->
-<!--    </tr>-->
-  </table>
-</ng-container>
+</table>
+}
 

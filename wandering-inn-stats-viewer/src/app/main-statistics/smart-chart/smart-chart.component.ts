@@ -1,103 +1,81 @@
 import {
-  AfterViewInit,
+  afterRenderEffect,
+  ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
-  HostListener,
-  Input,
-  OnChanges,
-  SimpleChanges,
-  ViewChild
+  inject,
+  input,
+  untracked,
+  viewChild
 } from '@angular/core';
 import bb, {Chart, ChartOptions} from "billboard.js";
 
+/** Renders a billboard.js chart and re-renders it whenever its options change. */
 @Component({
   selector: 'app-smart-chart',
   templateUrl: './smart-chart.component.html',
-  styleUrls: ['./smart-chart.component.scss']
+  styleUrls: ['./smart-chart.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {'(window:resize)': 'onResize()'}
 })
-export class SmartChartComponent implements AfterViewInit, OnChanges {
-  @Input()
-  public minWidth?: number | null = null;
+export class SmartChartComponent {
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  @Input()
-  public options?: ChartOptions;
+  /** When set, the chart keeps at least this width and its row scrolls horizontally. */
+  readonly minWidth = input<number | null>(null);
+  readonly options = input.required<ChartOptions>();
 
-  @ViewChild('chartTarget')
-  chartTarget!: ElementRef;
+  private readonly chartTarget = viewChild.required<ElementRef<HTMLDivElement>>('chartTarget');
 
-  public chart?: Chart;
+  private chart?: Chart;
+  private resizeTimeout?: number;
 
-  resizeTimeout?: number;
+  constructor() {
+    afterRenderEffect(() => {
+      const options = this.options();
+      const minWidth = this.minWidth();
+      untracked(() => this.render(options, minWidth));
+    });
 
-  @HostListener('window:resize', ['$event'])
-  onResize(event: any) {
-    if (this.minWidth && this.chart) {
-      let nativeElement = <HTMLDivElement>this.chartTarget.nativeElement;
-
-      this.resizeTimeout && window.clearTimeout(this.resizeTimeout);
-      this.resizeTimeout = window.setTimeout(() => {
-        this.chart!.resize({
-          width: nativeElement.getBoundingClientRect().width,
-          height: nativeElement.getBoundingClientRect().height,
-        });
-      }, 300);
-    }
+    inject(DestroyRef).onDestroy(() => {
+      window.clearTimeout(this.resizeTimeout);
+      this.chart?.destroy();
+    });
   }
 
-  ngOnChanges(changes: SimpleChanges): void {
-    let optionsChange = changes["options"];
-    if (optionsChange && !optionsChange.isFirstChange() && optionsChange.currentValue && optionsChange.currentValue != optionsChange.previousValue)
-    {
-      this.reInit();
-    }
+  onResize() {
+    if (!this.minWidth() || !this.chart)
+      return;
+
+    const target = this.chartTarget().nativeElement;
+    window.clearTimeout(this.resizeTimeout);
+    this.resizeTimeout = window.setTimeout(() => {
+      const bounds = target.getBoundingClientRect();
+      this.chart?.resize({width: bounds.width, height: bounds.height});
+    }, 300);
   }
 
-  constructor(private hostElementRef: ElementRef) {
-  }
-
-  ngAfterViewInit() {
-    this.init();
-  }
-
-  private reInit(){
+  private render(options: ChartOptions, minWidth: number | null) {
     this.chart?.destroy();
-    this.init();
-  }
 
-  private init() {
-    let hostNativeElement = <HTMLDivElement>this.hostElementRef.nativeElement;
-    let targetElement = <HTMLDivElement>this.chartTarget.nativeElement;
+    const host = this.host.nativeElement;
+    const target = this.chartTarget().nativeElement;
+    const config: ChartOptions = {...options, bindto: target};
 
+    if (minWidth) {
+      host.classList.add("breakout");
+      host.style.setProperty("--breakout", `${minWidth}px`);
 
-    if (!this.options)
-      throw Error("chart options are undefined")
+      if (!host.parentElement?.classList.contains("row"))
+        throw Error("parent does not exist or has no row class");
 
-    let options = this.options;
-    options.bindto = targetElement;
-
-    if (this.minWidth) {
-      hostNativeElement.classList.add("breakout")
-      hostNativeElement.style.setProperty("--breakout", `${this.minWidth}px`);
-
-      if (!hostNativeElement.parentElement?.classList.contains("row")) {
-        throw Error("parent does not exist or has no row class")
-      }
-
-      hostNativeElement.parentElement.classList.add("breakout")
-      this.options.resize = {
-        auto: false
-      }
-
-      this.options.size = {
-        width: targetElement.getBoundingClientRect().width
-      }
+      host.parentElement.classList.add("breakout");
+      config.resize = {auto: false};
+      config.size = {width: target.getBoundingClientRect().width};
     }
 
-    this.chart = bb.generate(options);
-
-    window.setTimeout(() => {
-      this.onResize(null);
-    }, 50)
+    this.chart = bb.generate(config);
+    window.setTimeout(() => this.onResize(), 50);
   }
-
 }

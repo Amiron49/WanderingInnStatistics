@@ -1,76 +1,31 @@
-import {
-  AfterViewInit,
-  Component,
-  Input,
-  OnChanges,
-  OnInit,
-  SimpleChange,
-  SimpleChanges,
-  ViewChild
-} from '@angular/core';
+import {ChangeDetectionStrategy, Component, computed, input} from '@angular/core';
 import {VolumeStatistic} from "../../wandering-inn-statistic";
 import {ChartOptions, radar} from "billboard.js";
 import {Helpers} from "../main-statistics.component";
 import {SmartChartComponent} from "../smart-chart/smart-chart.component";
-import {NumberFormatStyle} from "@angular/common";
 
+/** Radar of the five most mentioned characters of a volume. */
 @Component({
   selector: 'app-volume-character-occurence-radar',
   templateUrl: './volume-character-occurence-radar.component.html',
-  styleUrls: ['./volume-character-occurence-radar.component.scss']
+  styleUrls: ['./volume-character-occurence-radar.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [SmartChartComponent]
 })
-export class VolumeCharacterOccurenceRadarComponent implements OnInit, OnChanges, AfterViewInit {
+export class VolumeCharacterOccurenceRadarComponent {
+  readonly volumeStatistic = input.required<VolumeStatistic>();
+  readonly filterErin = input<boolean>(false);
+  /** Shows each character's share of the top five instead of absolute mentions. */
+  readonly weighted = input<boolean>(false);
+  /** Shows the volume's name above the chart; off where the page already says which volume it is. */
+  readonly showLabel = input<boolean>(true);
 
-  @Input()
-  volumeStatistic?: VolumeStatistic;
-  @Input()
-  filterErin: boolean = false;
-  @Input()
-  weighted: boolean = false;
+  readonly chartOptions = computed(() =>
+    VolumeCharacterOccurenceRadarComponent.createChartOptions(this.volumeStatistic(), this.filterErin(), this.weighted()));
 
-  chartOptions?: ChartOptions;
-
-  @ViewChild(SmartChartComponent)
-  smartChart!: SmartChartComponent;
-
-  constructor() {
-  }
-
-  ngOnInit(): void {
-  }
-
-  ngAfterViewInit() {
-    this.chartOptions = this.createVolumeCharacterMentionsChartOptions();
-  }
-
-  ngOnChanges(changes: SimpleChanges) {
-    let erinChange = changes["filterErin"];
-    let weightChange = changes["weighted"];
-
-    if (Helpers.isChange(erinChange) || Helpers.isChange(weightChange)) {
-      this.recalculate(erinChange?.currentValue ?? this.filterErin, weightChange?.currentValue ?? this.weighted);
-    }
-  }
-
-  recalculate(filterErin: boolean, weighted: boolean) {
-    let data = this.computeData(this.volumeStatistic!, filterErin, weighted);
-    this.smartChart.chart?.load({
-      columns: <any>data
-    });
-
-    let biggestValue = Math.max(...<number[]>data[1].slice(1, data[1].length - 1));
-
-    if (weighted && this.smartChart.chart!.config("radar.axis.max") > 2) {
-      this.smartChart.chart!.config("radar.axis.max", 1, true);
-    } else if (!weighted && this.smartChart.chart!.config("radar.axis.max") < 2) {
-      this.smartChart.chart!.config("radar.axis.max", biggestValue, true);
-    }
-  }
-
-  createVolumeCharacterMentionsChartOptions(): ChartOptions {
-    let data = this.computeData(this.volumeStatistic!, this.filterErin, this.weighted)
-
-    let biggestValue = Math.max(...<number[]>data[1].slice(1, data[1].length - 1));
+  private static createChartOptions(statistics: VolumeStatistic, filterErin: boolean, weighted: boolean): ChartOptions {
+    const data = VolumeCharacterOccurenceRadarComponent.computeData(statistics, filterErin, weighted);
+    const biggestValue = Math.max(...<number[]>data[1].slice(1, data[1].length - 1));
 
     return {
       size: {
@@ -85,7 +40,7 @@ export class VolumeCharacterOccurenceRadarComponent implements OnInit, OnChanges
           colors: "white",
           centered: true,
           format: v => {
-            let formatter = new Intl.NumberFormat("en-US", {
+            const formatter = new Intl.NumberFormat("en-US", {
               maximumFractionDigits: 2
             });
             return `${formatter.format(v)}`
@@ -115,26 +70,32 @@ export class VolumeCharacterOccurenceRadarComponent implements OnInit, OnChanges
     };
   }
 
-  computeData(statistics: VolumeStatistic, filterErin: boolean, weighted: boolean): (string | number)[][] {
-    let topCharacters = Helpers.ToDictionary(statistics.CharacterMentions).filter(Helpers.hackyFilter).filter(x => {
-      if (!filterErin)
-        return true;
-
-      return x.key != "Erin Solstice";
-    }).sort(Helpers.compare).slice(0, 5);
+  private static computeData(statistics: VolumeStatistic, filterErin: boolean, weighted: boolean): (string | number)[][] {
+    const topCharacters = Helpers.ToDictionary(statistics.CharacterMentions)
+      .filter(Helpers.hackyFilter)
+      .filter(x => !filterErin || x.key != "Erin Solstice")
+      .sort(Helpers.compare)
+      .slice(0, 5);
 
     let topData = topCharacters.map(x => x.value);
 
     if (weighted) {
-      let totalSum = topData.reduce((acc: number, val) => {
-        return acc + val
-      });
+      const totalSum = topData.reduce((acc: number, val) => acc + val);
       topData = topData.map(x => x / totalSum);
     }
 
     return [
-      ["x", ...topCharacters.map(x => x.key.split(" ")[0])],
+      ["x", ...VolumeCharacterOccurenceRadarComponent.axisLabels(topCharacters.map(x => x.key))],
       ["Mentions", ...topData]
     ]
+  }
+
+  /**
+   * First names, or the full name where two characters share one ("Mrsha" and "Mrsha du Marquin"). billboard merges equal
+   * axis labels, which drew the fifth value on the first axis.
+   */
+  static axisLabels(names: string[]): string[] {
+    const firstName = (name: string) => name.split(" ")[0];
+    return names.map(name => names.filter(other => firstName(other) == firstName(name)).length > 1 ? name : firstName(name));
   }
 }

@@ -1,58 +1,46 @@
-<ng-container *ngIf="doneLoading && statistics">
+@if (statistics(); as statistics) {
+  @let standard = standardStatistics()!;
   <h1>{{statistics.Name}}</h1>
-
   <div class="row">
-    <app-chonker-number-info text="Chapters" [amount]="chapters!"></app-chonker-number-info>
-    <!--  <div class="timespan"><span>{{statistics.WritingVelocity.from | date}}</span> <span>↕</span> <span>{{statistics.WritingVelocity.to | date}}</span></div>-->
+    <app-chonker-number-info text="Chapters" [amount]="statistics.Chapters.length"></app-chonker-number-info>
   </div>
-
   <div class="row">
     <app-chonker-number-info text="Characters" [amount]="statistics.Characters"></app-chonker-number-info>
     <app-chonker-number-info text="Words" [amount]="statistics.Words"></app-chonker-number-info>
-    <app-chonker-number-info text="Pages" [amount]="standardStatistics!.pageCount"
-                             subText="assuming 3k characters per page"></app-chonker-number-info>
-  </div>
-
-  <div class="row">
-    <app-smart-chart *ngIf="wordCountPerChapterChartOptionsCached" [options]="wordCountPerChapterChartOptionsCached!"
-                     [minWidth]="2800"></app-smart-chart>
+    <app-chonker-number-info text="Pages" [amount]="standard.pageCount"
+    subText="assuming 3k characters per page"></app-chonker-number-info>
   </div>
   <div class="row">
-    <app-smart-chart [options]="standardStatistics!.totalCharacterMentionsChartOptions"
-                     [minWidth]="900"></app-smart-chart>
+    <app-smart-chart [options]="wordCountPerChapterChartOptions()!" [minWidth]="2800"></app-smart-chart>
   </div>
-
-  <mat-checkbox #filterErin (change)="handleErinFilterChange($event)">Remove Erin <span *ngIf="filterErin.checked">(You Monster)</span>
-  </mat-checkbox>
-  <mat-checkbox #weightedMode (change)="handleWeightedChange($event)">Weighted View</mat-checkbox>
-
-  <div #shittyTabGroupContainer class="row" style="flex-wrap: wrap">
-    <mat-tab-group #shittyTabGroup style="width: 100%" mat-align-tabs="center">
+  <div class="row">
+    <app-smart-chart [options]="standard.totalCharacterMentionsChartOptions" [minWidth]="900"></app-smart-chart>
+  </div>
+  <mat-checkbox [checked]="filterErin()" (change)="filterErin.set($event.checked)">Remove Erin @if (filterErin()) {
+    <span>(You Monster)</span>
+  }</mat-checkbox>
+  <mat-checkbox [checked]="weighted()" (change)="weighted.set($event.checked)">Weighted View</mat-checkbox>
+  <div class="row" style="flex-wrap: wrap">
+    <mat-tab-group [selectedIndex]="selectedTab()" style="width: 100%" mat-align-tabs="center">
       <mat-tab class="row">
         <div class="row" style="flex-wrap: wrap">
-          <app-volume-character-occurence-radar [volumeStatistic]="statistics!" [filterErin]="false" [weighted]="false"
-                                                style="flex-grow: 1; "></app-volume-character-occurence-radar>
+          <app-volume-character-occurence-radar [volumeStatistic]="statistics" [showLabel]="false" [filterErin]="false" [weighted]="false"
+          style="flex-grow: 1; "></app-volume-character-occurence-radar>
         </div>
       </mat-tab>
       <mat-tab class="row">
         <div class="row" style="flex-wrap: wrap">
-          <app-volume-character-occurence-radar [volumeStatistic]="statistics!" [filterErin]="true" [weighted]="false"
-                                                style="flex-grow: 1; "></app-volume-character-occurence-radar>
+          <app-volume-character-occurence-radar [volumeStatistic]="statistics" [showLabel]="false" [filterErin]="true" [weighted]="false"
+          style="flex-grow: 1; "></app-volume-character-occurence-radar>
         </div>
       </mat-tab>
       <mat-tab class="row">
         <div class="row" style="flex-wrap: wrap">
-          <app-volume-character-occurence-radar [volumeStatistic]="statistics!" [filterErin]="filterErin.checked"
-                                                [weighted]="true"
-                                                style="flex-grow: 1; "></app-volume-character-occurence-radar>
+          <app-volume-character-occurence-radar [volumeStatistic]="statistics" [showLabel]="false" [filterErin]="filterErin()" [weighted]="true"
+          style="flex-grow: 1; "></app-volume-character-occurence-radar>
         </div>
       </mat-tab>
     </mat-tab-group>
-
   </div>
-
-
-  <app-standard-statistics-view [standardStatistics]="standardStatistics!"></app-standard-statistics-view>
-</ng-container>
-
-
+  <app-standard-statistics-view [standardStatistics]="standard"></app-standard-statistics-view>
+}

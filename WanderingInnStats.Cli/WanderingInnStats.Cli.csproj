@@ -13,8 +13,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\WanderingInnStats.Scrapping\WanderingInnStats.Scrapping.csproj" />
-	  <ProjectReference Include="..\WanderingInnStats\WanderingInnStats.csproj" />
+	  <ProjectReference Include="..\WanderingInnStats.Pipeline\WanderingInnStats.Pipeline.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

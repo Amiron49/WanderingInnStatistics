@@ -1,101 +1,82 @@
-import {Component, OnDestroy, OnInit, ViewChild} from '@angular/core';
-import {ActivatedRoute, Router} from "@angular/router";
+import {ChangeDetectionStrategy, Component, computed, effect, inject, input, viewChild} from '@angular/core';
+import {ActivatedRoute, Router, RouterLink} from "@angular/router";
 import {StatisticsService} from "../statistics.service";
 import {
   EntityType,
   GenericEntityMentionsStatisticsViewComponent
 } from "../generic-entity-mentions-statistics-view/generic-entity-mentions-statistics-view.component";
-import {FormControl} from "@angular/forms";
-import {Subscription} from "rxjs";
 import {Helpers, KeyValuePair} from "../main-statistics/main-statistics.component";
-import {MatSort, Sort} from "@angular/material/sort";
-import {MatTableDataSource} from "@angular/material/table";
+import {MatSort, MatSortHeader, Sort, SortDirection} from "@angular/material/sort";
+import {
+  MatCell,
+  MatColumnDef,
+  MatHeaderCell,
+  MatHeaderCellDef,
+  MatHeaderRow,
+  MatHeaderRowDef,
+  MatRow,
+  MatRowDef,
+  MatTable,
+  MatTableDataSource
+} from "@angular/material/table";
+import {CdkCellDef} from '@angular/cdk/table';
 
+/** All entities of one type with their mention counts; the sort is kept in the url. */
 @Component({
   selector: 'app-generic-entity-list',
   templateUrl: './generic-entity-list.component.html',
-  styleUrls: ['./generic-entity-list.component.scss']
+  styleUrls: ['./generic-entity-list.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [MatTable, MatSort, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatSortHeader, CdkCellDef, MatCell, RouterLink, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow]
 })
-export class GenericEntityListComponent implements OnInit, OnDestroy {
+export class GenericEntityListComponent {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly statisticsService = inject(StatisticsService);
 
-  shownColumns = ["value", "key"];
+  /** Route parameter <c>:type</c>. */
+  readonly type = input.required<EntityType>();
+  /** Query parameters. */
+  readonly sortBy = input<string>();
+  readonly sortDirection = input<SortDirection>();
 
-  searchInputChangesSubscription?: Subscription;
-  searchInput: FormControl = new FormControl();
-  type?: EntityType;
+  readonly shownColumns = ["value", "key"];
 
-  genericEntities: MatTableDataSource<KeyValuePair<string, number>> = new MatTableDataSource<KeyValuePair<string, number>>();
+  private readonly sort = viewChild(MatSort);
 
-  constructor(
-    private route: ActivatedRoute,
-    private router: Router,
-    private statisticsService: StatisticsService
-  ) {
-  }
+  readonly genericEntities = computed(() => {
+    const locator = GenericEntityMentionsStatisticsViewComponent.createLocator(this.type());
+    return new MatTableDataSource<KeyValuePair<string, number>>(Helpers.ToDictionary(locator(this.statisticsService.getStatistics())));
+  });
 
-  @ViewChild(MatSort)
-  sort?: MatSort;
+  constructor() {
+    // Hooks the table up to the sort header and applies the sort from the url (on load and on back/forward).
+    effect(() => {
+      const dataSource = this.genericEntities();
+      const sort = this.sort();
+      if (!sort)
+        return;
 
-  ngAfterViewInit() {
-    this.genericEntities.sort = this.sort!;
+      dataSource.sort = sort;
 
-    this.route.queryParams.subscribe(params => {
-      let sortBy = params["sortBy"];
-      let sortDirection = params["sortDirection"];
-
-      if (!this.urlChangingProgramatically && sortBy)
-      {
-        let sort = {
-          id: sortBy,
-          start: sortDirection,
-          disableClear: true
-        };
-        window.setTimeout(() => this.sort!.sort(sort));
+      const active = this.sortBy() ?? "";
+      const direction = this.sortDirection() ?? "";
+      if (sort.active !== active || sort.direction !== direction) {
+        sort.active = active;
+        sort.direction = direction;
+        sort.sortChange.emit({active, direction});
       }
-    })
+    });
   }
-
-  ngOnInit(): void {
-    this.searchInputChangesSubscription = this.searchInput.valueChanges.subscribe(x => {
-
-    })
-
-    this.route.params.subscribe(params => {
-      this.type = params["type"];
-
-      let locator = GenericEntityMentionsStatisticsViewComponent.createLocator(this.type!)
-
-      this.genericEntities.data = Helpers.ToDictionary(locator(this.statisticsService.getStatistics()));
-    })
-
-    this.route.queryParams.subscribe(params => {
-      let query = params["query"];
-
-      if (query && query != this.searchInput.value)
-        this.searchInput.setValue(query);
-    })
-  }
-
-  ngOnDestroy(): void {
-    this.searchInputChangesSubscription?.unsubscribe();
-  }
-
-  urlChangingProgramatically: boolean = false;
 
   async onSortChange(sort: Sort) {
-    this.urlChangingProgramatically = true;
-
-    await this.router.navigate(
-      [],
-      {
-        relativeTo: this.route,
-        queryParams: {
-          sortBy: sort.active,
-          sortDirection: sort.direction
-        },
-        queryParamsHandling: 'merge'
-      });
-
-    this.urlChangingProgramatically = false;
+    await this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        sortBy: sort.active,
+        sortDirection: sort.direction
+      },
+      queryParamsHandling: 'merge'
+    });
   }
 }

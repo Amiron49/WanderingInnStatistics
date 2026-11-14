@@ -1,15 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import {ChangeDetectionStrategy, Component} from '@angular/core';
 
 @Component({
   selector: 'app-impressum',
   templateUrl: './impressum.component.html',
-  styleUrls: ['./impressum.component.scss']
+  styleUrls: ['./impressum.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ImpressumComponent implements OnInit {
-
-  constructor() { }
-
-  ngOnInit(): void {
-  }
-
+export class ImpressumComponent {
 }

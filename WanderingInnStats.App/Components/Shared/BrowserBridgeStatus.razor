@@ -1,0 +1,20 @@
+@implements IDisposable
+@inject BrowserBridge Bridge
+
+@* Header pill: is the browser extension connected? Links to the setup on the Settings page. *@
+
+<a class="browser-bridge-status badge rounded-pill text-decoration-none @(Bridge.IsConnected ? "bg-success" : "bg-secondary")"
+   href="settings#browser-bridge"
+   title="@Title">
+    Browser: @(Bridge.IsConnected ? "connected" : Bridge.IsListening ? "not connected" : "off")
+</a>
+
+@code {
+    private string Title => Bridge.IsConnected
+        ? $"The browser extension is connected ({Bridge.ConnectedUserAgent}). Patreon-locked chapters can be fetched through it."
+        : Bridge.LastError ?? "The browser extension isn't connected. See Settings → Browser bridge.";
+
+    protected override void OnInitialized() => Bridge.Changed += OnChanged;
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Bridge.Changed -= OnChanged;
+}

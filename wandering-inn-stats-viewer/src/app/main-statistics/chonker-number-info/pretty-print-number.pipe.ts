@@ -1,8 +1,6 @@
 import { Pipe, PipeTransform } from '@angular/core';
 
-@Pipe({
-  name: 'prettyPrintNumber'
-})
+@Pipe({ name: 'prettyPrintNumber' })
 export class PrettyPrintNumberPipe implements PipeTransform {
 
   transform(value: number): string {
