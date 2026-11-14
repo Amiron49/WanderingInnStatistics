@@ -1,27 +1,29 @@
-import {Component, OnDestroy, OnInit, ViewChild} from '@angular/core';
+import {Component, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {ActivatedRoute, Router} from "@angular/router";
 import {StatisticsService} from "../statistics.service";
 import {
   EntityType,
   GenericEntityMentionsStatisticsViewComponent
 } from "../generic-entity-mentions-statistics-view/generic-entity-mentions-statistics-view.component";
-import {FormControl} from "@angular/forms";
+import {UntypedFormControl} from "@angular/forms";
 import {Subscription} from "rxjs";
 import {Helpers, KeyValuePair} from "../main-statistics/main-statistics.component";
 import {MatSort, Sort} from "@angular/material/sort";
 import {MatTableDataSource} from "@angular/material/table";
 
 @Component({
-  selector: 'app-generic-entity-list',
-  templateUrl: './generic-entity-list.component.html',
-  styleUrls: ['./generic-entity-list.component.scss']
+    selector: 'app-generic-entity-list',
+    templateUrl: './generic-entity-list.component.html',
+    styleUrls: ['./generic-entity-list.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class GenericEntityListComponent implements OnInit, OnDestroy {
 
   shownColumns = ["value", "key"];
 
   searchInputChangesSubscription?: Subscription;
-  searchInput: FormControl = new FormControl();
+  searchInput: UntypedFormControl = new UntypedFormControl();
   type?: EntityType;
 
   genericEntities: MatTableDataSource<KeyValuePair<string, number>> = new MatTableDataSource<KeyValuePair<string, number>>();

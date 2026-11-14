@@ -1,1 +1,3 @@
-<app-smart-chart *ngIf="chartOptions" [options]="chartOptions"></app-smart-chart>
+@if (chartOptions) {
+  <app-smart-chart [options]="chartOptions"></app-smart-chart>
+}

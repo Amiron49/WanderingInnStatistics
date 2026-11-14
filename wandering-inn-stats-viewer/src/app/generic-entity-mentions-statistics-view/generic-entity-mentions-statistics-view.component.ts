@@ -1,13 +1,15 @@
-import {Component, Input, OnInit} from '@angular/core';
+import {Component, Input, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {GenericMentionsStatistic} from "./genericMentionsStatistic";
 import {ActivatedRoute} from "@angular/router";
 import {StatisticsService} from "../statistics.service";
 import {AbstractWanderingInnStatistic} from "../wandering-inn-statistic";
 
 @Component({
-  selector: 'app-generic-entity-mentions-statistics-view',
-  templateUrl: './generic-entity-mentions-statistics-view.component.html',
-  styleUrls: ['./generic-entity-mentions-statistics-view.component.scss']
+    selector: 'app-generic-entity-mentions-statistics-view',
+    templateUrl: './generic-entity-mentions-statistics-view.component.html',
+    styleUrls: ['./generic-entity-mentions-statistics-view.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class GenericEntityMentionsStatisticsViewComponent implements OnInit {
   @Input()

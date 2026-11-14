@@ -1,4 +1,6 @@
+import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 
 import { AppNavigationComponent } from './app-navigation.component';
 
@@ -8,7 +10,9 @@ describe('AppNavigationComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ AppNavigationComponent ]
+      declarations: [ AppNavigationComponent ],
+      providers: [ provideRouter([]) ],
+      schemas: [ NO_ERRORS_SCHEMA ]
     })
     .compileComponents();
   });

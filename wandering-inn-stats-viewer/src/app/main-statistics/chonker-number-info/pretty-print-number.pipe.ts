@@ -1,7 +1,8 @@
 import { Pipe, PipeTransform } from '@angular/core';
 
 @Pipe({
-  name: 'prettyPrintNumber'
+    name: 'prettyPrintNumber',
+    standalone: false
 })
 export class PrettyPrintNumberPipe implements PipeTransform {
 

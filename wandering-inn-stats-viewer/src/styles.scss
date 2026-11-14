@@ -41,7 +41,7 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 }
 
 
-@import "~billboard.js/dist/theme/graph.css";
+@import "billboard.js/dist/theme/graph.css";
 
 .bb {
   color: black;
@@ -56,17 +56,18 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
   }
 }
 
-mat-tab-group > .mat-tab-header {
+mat-tab-group > .mat-mdc-tab-header {
   display: none;
 }
 
 
-a:not(.mat-button-base) {
+a:not(.mat-mdc-button-base) {
   color: #ce93d8;
 }
 
-table.mat-table {
+table.mat-mdc-table {
   width: 100%;
+  min-width: 0; // MDC's .mdc-data-table__table sets min-width: 100%, which would override the width below
   margin: auto;
   @media (min-width: 800px) {
     width: 800px;

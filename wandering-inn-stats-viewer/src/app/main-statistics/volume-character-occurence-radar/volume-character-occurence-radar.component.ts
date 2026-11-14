@@ -6,7 +6,8 @@ import {
   OnInit,
   SimpleChange,
   SimpleChanges,
-  ViewChild
+  ViewChild,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import {VolumeStatistic} from "../../wandering-inn-statistic";
 import {ChartOptions, radar} from "billboard.js";
@@ -15,9 +16,11 @@ import {SmartChartComponent} from "../smart-chart/smart-chart.component";
 import {NumberFormatStyle} from "@angular/common";
 
 @Component({
-  selector: 'app-volume-character-occurence-radar',
-  templateUrl: './volume-character-occurence-radar.component.html',
-  styleUrls: ['./volume-character-occurence-radar.component.scss']
+    selector: 'app-volume-character-occurence-radar',
+    templateUrl: './volume-character-occurence-radar.component.html',
+    styleUrls: ['./volume-character-occurence-radar.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class VolumeCharacterOccurenceRadarComponent implements OnInit, OnChanges, AfterViewInit {
 

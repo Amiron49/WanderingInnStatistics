@@ -294,7 +294,7 @@ export class OtherBooksComparision {
               if (!names)
                 return "MISSING NAME"
 
-              return names[0];
+              return String(names[0]);
             } catch (e) {
               throw `Cannot find volume name for ${story} @ ${fixedIndex}`
             }
@@ -361,7 +361,7 @@ export class OtherBooksComparision {
             if (value == 0)
               return <any>undefined
 
-            return value;
+            return String(value);
           }
         }
       }

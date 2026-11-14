@@ -1,4 +1,4 @@
-import {Component, ElementRef, OnInit, ViewChild} from '@angular/core';
+import {Component, ElementRef, OnInit, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {AbstractWanderingInnStatistic, VolumeStatistic, WanderingInnStatistic} from "../wandering-inn-statistic";
 import {bar, ChartOptions, line} from "billboard.js";
 import {OtherBooksComparision, StandardStatisticInterpretation, StatisticsService} from "../statistics.service";
@@ -7,9 +7,11 @@ import {MatCheckbox, MatCheckboxChange} from "@angular/material/checkbox";
 import {ActivatedRoute, Router} from "@angular/router";
 
 @Component({
-  selector: 'app-volume-statistics',
-  templateUrl: './volume-statistics.component.html',
-  styleUrls: ['./volume-statistics.component.scss']
+    selector: 'app-volume-statistics',
+    templateUrl: './volume-statistics.component.html',
+    styleUrls: ['./volume-statistics.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class VolumeStatisticsComponent implements OnInit {
 

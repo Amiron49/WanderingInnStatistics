@@ -6,19 +6,21 @@ import {
   OnDestroy,
   OnInit,
   SimpleChange,
-  ViewChild
+  ViewChild,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import {OtherBooksComparision, StandardStatisticInterpretation, StatisticsService} from "../statistics.service";
 import {VolumeStatistic, WanderingInnStatistic, WritingVelocity} from "../wandering-inn-statistic";
-import "billboard.js/dist/theme/insight.css";
 import bb, {bar, Chart, ChartOptions, line, radar, spline} from "billboard.js"
 import {MatTabGroup} from "@angular/material/tabs";
 import {MatCheckbox, MatCheckboxChange} from "@angular/material/checkbox";
 
 @Component({
-  selector: 'app-main-statistics',
-  templateUrl: './main-statistics.component.html',
-  styleUrls: ['./main-statistics.component.scss']
+    selector: 'app-main-statistics',
+    templateUrl: './main-statistics.component.html',
+    styleUrls: ['./main-statistics.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class MainStatisticsComponent implements OnInit, AfterViewInit, OnDestroy {
   chapters: number;

@@ -6,14 +6,17 @@ import {
   Input,
   OnChanges,
   SimpleChanges,
-  ViewChild
+  ViewChild,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import bb, {Chart, ChartOptions} from "billboard.js";
 
 @Component({
-  selector: 'app-smart-chart',
-  templateUrl: './smart-chart.component.html',
-  styleUrls: ['./smart-chart.component.scss']
+    selector: 'app-smart-chart',
+    templateUrl: './smart-chart.component.html',
+    styleUrls: ['./smart-chart.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class SmartChartComponent implements AfterViewInit, OnChanges {
   @Input()

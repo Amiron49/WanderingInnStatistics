@@ -1,10 +1,12 @@
-import {Component, EventEmitter, OnInit, Output} from '@angular/core';
+import {Component, EventEmitter, OnInit, Output, ChangeDetectionStrategy} from '@angular/core';
 import {StatisticsService} from "../statistics.service";
 
 @Component({
-  selector: 'app-navigation',
-  templateUrl: './app-navigation.component.html',
-  styleUrls: ['./app-navigation.component.scss']
+    selector: 'app-navigation',
+    templateUrl: './app-navigation.component.html',
+    styleUrls: ['./app-navigation.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class AppNavigationComponent implements OnInit {
 
