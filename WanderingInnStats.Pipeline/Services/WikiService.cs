@@ -17,9 +17,6 @@ public record SanityCheckResult(bool Ok, string? Error);
 
 public class WikiService
 {
-    public const string CategoryUrl = "https://thewanderinginn.fandom.com/wiki/Category:Characters";
-    private static readonly string[] ListingSelectors = [".category-page__member-link", ".category-page__pagination-next"];
-    private static readonly string[] CharacterSelectors = [".portable-infobox > h2", "div[data-source] > .pi-data-value"];
     private const int MaxSnapshots = 3;
 
     private readonly WorkspaceDbFactory _dbFactory;
@@ -66,20 +63,17 @@ public class WikiService
             }
             catch (Exception e)
             {
-                var snapshot = await ScrapeDiagnostics.CaptureAsync(CategoryUrl, ListingSelectors, _options.DiagnosticsDirectory, cancellationToken);
+                var snapshot = await ScrapeDiagnostics.CaptureAsync(WikiScrapper.CategoryUrl, WikiScrapper.ListingSelectors, _options.DiagnosticsDirectory, cancellationToken);
                 throw new ScrapeException($"WikiScrapper.GetCharacterListingPages failed ({e.GetType().Name}: {e.Message})", e, snapshot, capture.Take());
             }
 
-            // Same filter as WikiScrapper.GetAllCharacters
-            var links = pages.SelectMany(x => x.CharacterPages)
-                .Where(x => !x.StartsWith("https://thewanderinginn.fandom.com/wiki/Category:"))
-                .ToList();
+            var links = WikiScrapper.GetCharacterLinks(pages);
 
             _logger.LogInformation("Found {count} character pages on {pages} listing pages", links.Count, pages.Count);
 
             if (links.Count == 0)
             {
-                var snapshot = await ScrapeDiagnostics.CaptureAsync(CategoryUrl, ListingSelectors, _options.DiagnosticsDirectory, cancellationToken);
+                var snapshot = await ScrapeDiagnostics.CaptureAsync(WikiScrapper.CategoryUrl, WikiScrapper.ListingSelectors, _options.DiagnosticsDirectory, cancellationToken);
                 throw new ScrapeException("The wiki category listing yielded no character pages; stored characters were left untouched", null, snapshot, capture.Take());
             }
 
@@ -107,7 +101,7 @@ public class WikiService
                     continue;
 
                 if (snapshots++ < MaxSnapshots)
-                    error += "\n\n" + await ScrapeDiagnostics.CaptureAsync(links[i], CharacterSelectors, _options.DiagnosticsDirectory, cancellationToken);
+                    error += "\n\n" + await ScrapeDiagnostics.CaptureAsync(links[i], WikiScrapper.CharacterSelectors, _options.DiagnosticsDirectory, cancellationToken);
 
                 failures.Add(new WikiPageFailure(links[i], error));
                 _logger.LogWarning("Failed parsing {url}: {error}", links[i], error.Split('\n')[0]);

@@ -184,7 +184,7 @@ public class StatisticsPipeline
         var dirty = ChapterFixing.FindDirtyChapters(chapters);
         logger.LogInformation("Found {count} dirty chapters", dirty.Count);
         ChapterFixing.Fixup(chapters);
-        dirty = ChapterFixing.FindDirtyChapters(chapters).Where(x => x.Volume != "Volume 8\n").ToList();
+        dirty = ChapterFixing.FindDirtyChapters(chapters).Where(x => x.Volume.Trim() != "Volume 8").ToList();
         logger.LogInformation("{count} dirty chapters remaining", dirty.Count);
         if (dirty.Count > 0)
             throw new InvalidOperationException($"Still have dirty chapters: {string.Join(", ", dirty.Select(x => x.Name))}");

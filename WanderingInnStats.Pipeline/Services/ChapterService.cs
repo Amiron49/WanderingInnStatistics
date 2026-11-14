@@ -50,7 +50,6 @@ public record DownloadResult(int Succeeded, int Failed, int OverridesMarkedStale
 
 public class ChapterService
 {
-    public const string TocUrl = "https://wanderinginn.com/table-of-contents/";
 
     /// <summary>Per download batch, only snapshot the first few failures; if everything fails they're all the same anyway.</summary>
     private const int MaxSnapshotsPerBatch = 3;
@@ -80,8 +79,8 @@ public class ChapterService
             catch (Exception e)
             {
                 var consoleOutput = capture.Take();
-                _logger.LogWarning("Scrapper.GetToc threw {type}; capturing a snapshot of {url}", e.GetType().Name, TocUrl);
-                var snapshot = await ScrapeDiagnostics.CaptureAsync(TocUrl, ScrapeDiagnostics.TocSelectors, _options.DiagnosticsDirectory, cancellationToken);
+                _logger.LogWarning("Scrapper.GetToc threw {type}; capturing a snapshot of {url}", e.GetType().Name, Scrapper.TocUrl);
+                var snapshot = await ScrapeDiagnostics.CaptureAsync(Scrapper.TocUrl, Scrapper.TocSelectors, _options.DiagnosticsDirectory, cancellationToken);
                 _logger.LogWarning("{snapshot}", snapshot.ToString());
                 throw new ScrapeException($"Scrapper.GetToc failed ({e.GetType().Name}: {e.Message})", e, snapshot, consoleOutput);
             }
@@ -89,7 +88,7 @@ public class ChapterService
 
         if (toc.Contents.Count == 0)
         {
-            var snapshot = await ScrapeDiagnostics.CaptureAsync(TocUrl, ScrapeDiagnostics.TocSelectors, _options.DiagnosticsDirectory, cancellationToken);
+            var snapshot = await ScrapeDiagnostics.CaptureAsync(Scrapper.TocUrl, Scrapper.TocSelectors, _options.DiagnosticsDirectory, cancellationToken);
             throw new ScrapeException("Scrapper.GetToc returned an empty table of contents", null, snapshot, null);
         }
 
@@ -276,7 +275,7 @@ public class ChapterService
             if (error != null && snapshots < MaxSnapshotsPerBatch)
             {
                 snapshots++;
-                var snapshot = await ScrapeDiagnostics.CaptureAsync(chapterRef.Url, ScrapeDiagnostics.ChapterSelectors, _options.DiagnosticsDirectory, cancellationToken);
+                var snapshot = await ScrapeDiagnostics.CaptureAsync(chapterRef.Url, Scrapper.ChapterSelectors, _options.DiagnosticsDirectory, cancellationToken);
                 error += "\n\n" + snapshot;
             }
 
