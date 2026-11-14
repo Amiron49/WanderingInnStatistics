@@ -60,6 +60,68 @@ namespace WanderingInnStats.Tests
 		}
 
 		[Fact]
+		public void Fixup_RefusedStep_IsNamed()
+		{
+			var act = () => ChapterFixing.GetFixedText(Chapter("(" + new string('a', 400) + ") Erin smiled."));
+
+			act.Should().Throw<ChapterFixupException>().Where(e => e.Fix == ChapterFix.LeadingBlurb);
+		}
+
+		[Fact]
+		public void Fixup_DisabledLeadingBlurb_KeepsTextAndSkipsBracketCheck()
+		{
+			var chapter = Chapter("(" + new string('a', 400) + ") Erin smiled.");
+
+			var (text, applied) = ChapterFixing.GetFixed(chapter, ChapterFix.LeadingBlurb);
+
+			text.Should().Be(chapter.Text);
+			applied.Should().Be(ChapterFix.None);
+			ChapterFixing.DirtyReason(chapter, ChapterFix.LeadingBlurb).Should().BeNull();
+		}
+
+		[Fact]
+		public void Fixup_ReportsAppliedSteps()
+		{
+			var chapter = Chapter("(note) Previous Chapter Next Chapter Erin smiled. After Chapter Thoughts bye");
+
+			var (text, applied) = ChapterFixing.GetFixed(chapter);
+
+			text.Should().Be("  Erin smiled. ");
+			applied.Should().Be(ChapterFix.NavigationLine | ChapterFix.AfterChapterThoughts | ChapterFix.LeadingBlurb);
+		}
+
+		[Fact]
+		public void Fixup_DisabledStep_IsSkipped()
+		{
+			var chapter = Chapter("Erin smiled. After Chapter Thoughts bye");
+
+			ChapterFixing.GetFixedText(chapter, ChapterFix.AfterChapterThoughts).Should().Be(chapter.Text);
+			ChapterFixing.DirtyReason(chapter, ChapterFix.AfterChapterThoughts).Should().Contain("After Chapter Thoughts");
+			ChapterFixing.DirtyReason(chapter, ChapterFix.AfterChapterThoughts | ChapterFix.SuspiciousPhraseCheck).Should().BeNull();
+		}
+
+		[Fact]
+		public void Fixup_PerChapterSettings_ApplyOnlyToThatChapter()
+		{
+			var a = Chapter("Erin smiled. After Chapter Thoughts bye", "a");
+			var b = Chapter("Erin smiled. After Chapter Thoughts bye", "b");
+
+			ChapterFixing.Fixup(new() { a, b }, x => x.Name == "a" ? ChapterFix.AfterChapterThoughts : ChapterFix.None);
+
+			a.Text.Should().Contain("After Chapter Thoughts");
+			b.Text.Should().Be("Erin smiled. ");
+		}
+
+		[Fact]
+		public void Fixup_AntiniumWars_KeepsLeadingBracket()
+		{
+			var chapter = Chapter("(The Antinium Wars) The Hive marched.", "S02 – The Antinium Wars (Pt.1)");
+
+			ChapterFixing.GetFixedText(chapter).Should().Be(chapter.Text);
+			ChapterFixing.IsDirty(chapter).Should().BeFalse();
+		}
+
+		[Fact]
 		public void Context_MarksOnlyTheMatchedOccurrence()
 		{
 			var text = "Erin and Erin";

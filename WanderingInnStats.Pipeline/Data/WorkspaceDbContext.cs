@@ -88,6 +88,7 @@ public class WorkspaceDbFactory : IDbContextFactory<WorkspaceDbContext>
     private static void UpgradeSchema(WorkspaceDbContext context)
     {
         AddColumnIfMissing(context, "Chapters", "PatreonLocked", "INTEGER NOT NULL DEFAULT 0");
+        AddColumnIfMissing(context, "Chapters", "DisabledFixes", "INTEGER NOT NULL DEFAULT 0");
         Execute(context, """
             CREATE TABLE IF NOT EXISTS "WikiEntities" (
                 "Id" TEXT NOT NULL CONSTRAINT "PK_WikiEntities" PRIMARY KEY,

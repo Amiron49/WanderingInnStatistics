@@ -127,6 +127,7 @@ else
                         @if (chapter.HasOverride) { <span class="badge bg-info text-dark">override</span> }
                         @if (chapter.OverrideStale) { <span class="badge bg-warning text-dark">override stale</span> }
                         @if (_dirty?.Contains(chapter.Id) == true) { <span class="badge bg-danger">dirty</span> }
+                        @if (chapter.DisabledFixes != ChapterFix.None) { <a class="badge bg-light text-dark border text-decoration-none" href="chapters/@chapter.Id?tab=Fixed" title="Turned off: @chapter.DisabledFixes">fixes off</a> }
                         @if (chapter.Excluded) { <span class="badge bg-dark">excluded</span> }
                         @if (!chapter.InToc) { <span class="badge bg-light text-dark border">not in TOC</span> }
                     </td>

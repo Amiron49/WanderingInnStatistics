@@ -25,6 +25,9 @@ public class StoredChapter
     public bool OverrideStale { get; set; }
 
     public bool Excluded { get; set; }
+
+    /// <summary>The <see cref="ChapterFixing"/> steps turned off for this chapter.</summary>
+    public ChapterFix DisabledFixes { get; set; }
     public DateTime? DownloadedAt { get; set; }
     public string? LastError { get; set; }
 

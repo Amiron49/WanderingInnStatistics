@@ -87,15 +87,50 @@
             The effective text (@(_chapter.OverrideText != null ? "override" : "raw")) after <code>ChapterFixing.Fixup</code>.
             Suspicious phrases are highlighted.
         </p>
+        <div class="card card-body py-2 mb-3 small">
+            <div class="fw-bold mb-1">Fixes for this chapter</div>
+            @{ var builtIn = ChapterFixing.BuiltInDisabled(_chapter.ToChapter()); }
+            @foreach (var (fix, label, description) in ChapterFixing.AllFixes)
+            {
+                var forcedOff = builtIn.HasFlag(fix);
+                var on = !forcedOff && !_chapter.DisabledFixes.HasFlag(fix);
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="fix-@fix" checked="@on" disabled="@forcedOff"
+                           @onchange="e => ToggleFix(fix, e.Value is true)" />
+                    <label class="form-check-label" for="fix-@fix" title="@description">
+                        @label
+                        @if (forcedOff)
+                        {
+                            <span class="badge bg-light text-dark border ms-1">always off for this chapter</span>
+                        }
+                        else if (_fixed?.RefusedFix == fix)
+                        {
+                            <span class="badge bg-danger ms-1">refused</span>
+                        }
+                        else if (_fixed != null && _fixed.Applied.HasFlag(fix))
+                        {
+                            <span class="badge bg-success ms-1">changed the text</span>
+                        }
+                    </label>
+                    <div class="text-muted">@description</div>
+                </div>
+            }
+        </div>
+
         @if (_fixed?.Error != null)
         {
             <div class="alert alert-danger" style="white-space: pre-wrap">Fixup threw: @_fixed.Error</div>
+            @if (_fixed.RefusedFix != ChapterFix.None)
+            {
+                <p class="small">Turn off <strong>@ChapterFixing.AllFixes.First(x => x.Fix == _fixed.RefusedFix).Label</strong> above if the text it trips on is part of the story.</p>
+            }
         }
         else if (_fixed?.Text != null)
         {
             @if (_fixed.IsDirty)
             {
-                <div class="alert alert-warning">The chapter is still dirty after fixing. The statistics run will fail on it (unless it's in Volume 8). Write an override.</div>
+                <div class="alert alert-warning" style="white-space: pre-wrap">The chapter is still dirty after fixing: @_fixed.DirtyReason
+The statistics run will fail on it (unless it's in Volume 8). Write an override, or turn off the check above if that text is part of the story.</div>
             }
             <div class="chapter-text">@Highlight(_fixed.Text)</div>
         }
@@ -203,11 +238,19 @@
 
         _overrideDraft = _chapter.OverrideText;
         _fixed = _chapter.IsDownloaded || _chapter.OverrideText != null
-            ? await Task.Run(() => ChapterPreviewService.GetFixedText(_chapter.ToChapter()))
+            ? await Task.Run(() => ChapterPreviewService.GetFixedText(_chapter.ToChapter(), _chapter.DisabledFixes))
             : null;
         _preview = null;
         if (_tab == "Stats preview")
             await RunPreview();
+    }
+
+    private async Task ToggleFix(ChapterFix fix, bool on)
+    {
+        if (_chapter == null) return;
+        var disabled = on ? _chapter.DisabledFixes & ~fix : _chapter.DisabledFixes | fix;
+        await ChapterService.SetDisabledFixesAsync(Id, disabled);
+        await Load();
     }
 
     private async Task SelectTab(string tab)

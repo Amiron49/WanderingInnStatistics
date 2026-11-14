@@ -89,7 +89,7 @@ public class StatisticsPipeline
     private async Task<PipelineResult> RunInternal(StatisticsRun run, ILogger logger, IProgress<PipelineStage>? progress, CancellationToken ct)
     {
         progress?.Report(PipelineStage.Loading);
-        var chapters = await LoadChaptersAsync(ct);
+        var (chapters, disabledFixes) = await LoadChaptersAsync(ct);
         var characters = await _wikiService.GetIncludedCharactersAsync(ct);
         var entities = await _wikiService.GetIncludedEntitiesAsync(null, ct);
         run.ChapterCount = chapters.Count;
@@ -109,7 +109,7 @@ public class StatisticsPipeline
 
         ct.ThrowIfCancellationRequested();
         progress?.Report(PipelineStage.ChapterFixing);
-        DirtyChapterFixing(chapters, logger);
+        DirtyChapterFixing(chapters, disabledFixes, logger);
 
         ct.ThrowIfCancellationRequested();
         progress?.Report(PipelineStage.FirstPass);
@@ -170,14 +170,16 @@ public class StatisticsPipeline
             run.StatisticsFile, run.DefinitionsFile, copiedTo);
     }
 
-    private async Task<List<Chapter>> LoadChaptersAsync(CancellationToken ct)
+    /// <returns>The chapters to process, and the fix steps each one has turned off (by url).</returns>
+    private async Task<(List<Chapter> Chapters, Dictionary<string, ChapterFix> DisabledFixes)> LoadChaptersAsync(CancellationToken ct)
     {
         await using var db = _dbFactory.CreateDbContext();
         var stored = await db.Chapters
             .Where(x => !x.Excluded && x.RawText != null)
             .OrderBy(x => x.TocOrder)
             .ToListAsync(ct);
-        return stored.Select(x => x.ToChapter()).ToList();
+        var disabled = stored.Where(x => x.DisabledFixes != ChapterFix.None).ToDictionary(x => x.Url, x => x.DisabledFixes);
+        return (stored.Select(x => x.ToChapter()).ToList(), disabled);
     }
 
     /// <summary>
@@ -212,16 +214,22 @@ public class StatisticsPipeline
         .Where(x => x.Parent == null || x.Name.Contains(x.Parent.Singularize(false), StringComparison.OrdinalIgnoreCase))
         .Select(x => x.Name);
 
-    private static void DirtyChapterFixing(List<Chapter> chapters, ILogger logger)
+    private static void DirtyChapterFixing(List<Chapter> chapters, IReadOnlyDictionary<string, ChapterFix> disabledFixes, ILogger logger)
     {
-        var dirty = ChapterFixing.FindDirtyChapters(chapters);
+        ChapterFix DisabledFor(Chapter chapter) => disabledFixes.GetValueOrDefault(chapter.Url);
+
+        if (disabledFixes.Count > 0)
+            logger.LogInformation("{count} chapters have fixes turned off: {chapters}", disabledFixes.Count,
+                string.Join(", ", chapters.Where(x => disabledFixes.ContainsKey(x.Url)).Select(x => $"{x.Name} ({DisabledFor(x)})")));
+
+        var dirty = ChapterFixing.FindDirtyChapters(chapters, DisabledFor);
         logger.LogInformation("Found {count} dirty chapters", dirty.Count);
-        ChapterFixing.Fixup(chapters);
-        dirty = ChapterFixing.FindDirtyChapters(chapters).Where(x => x.Volume.Trim() != "Volume 8").ToList();
+        ChapterFixing.Fixup(chapters, DisabledFor);
+        dirty = ChapterFixing.FindDirtyChapters(chapters, DisabledFor).Where(x => x.Volume.Trim() != "Volume 8").ToList();
         logger.LogInformation("{count} dirty chapters remaining", dirty.Count);
         if (dirty.Count > 0)
             throw new DirtyChaptersException(dirty
-                .Select(x => new ChapterIssue(x.Name, x.Url, $"({x.Volume.Trim()}) {ChapterFixing.DirtyReason(x)}", "Fixed"))
+                .Select(x => new ChapterIssue(x.Name, x.Url, $"({x.Volume.Trim()}) {ChapterFixing.DirtyReason(x, DisabledFor(x))}", "Fixed"))
                 .ToList());
     }
 

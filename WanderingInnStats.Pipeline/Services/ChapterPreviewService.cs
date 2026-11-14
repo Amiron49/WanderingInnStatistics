@@ -6,7 +6,11 @@ using WanderingInnStats.Pipeline.Data;
 
 namespace WanderingInnStats.Pipeline.Services;
 
-public record FixedTextResult(string? Text, string? Error, bool IsDirty);
+/// <param name="Applied">The fix steps that changed the text.</param>
+/// <param name="RefusedFix">The step whose safety check threw <paramref name="Error"/>.</param>
+/// <param name="DirtyReason">Why the (fixed) text still looks dirty, or null.</param>
+public record FixedTextResult(string? Text, string? Error, bool IsDirty, ChapterFix Applied = ChapterFix.None, ChapterFix RefusedFix = ChapterFix.None,
+    string? DirtyReason = null);
 
 public record ChapterPreview(IWanderingInnStatistics Statistics, bool Approximate, string? FixupError);
 
@@ -23,30 +27,34 @@ public class ChapterPreviewService
         _wikiService = wikiService;
     }
 
-    public static FixedTextResult GetFixedText(Chapter chapter)
+    public static FixedTextResult GetFixedText(Chapter chapter, ChapterFix disabled = ChapterFix.None)
     {
         try
         {
-            var fixedText = ChapterFixing.GetFixedText(chapter);
+            var (fixedText, applied) = ChapterFixing.GetFixed(chapter, disabled);
             var fixedChapter = new Chapter { Name = chapter.Name, Volume = chapter.Volume, Url = chapter.Url, Text = fixedText };
-            return new FixedTextResult(fixedText, null, SafeIsDirty(fixedChapter));
+            var reason = SafeDirtyReason(fixedChapter, disabled);
+            return new FixedTextResult(fixedText, null, reason != null, applied, ChapterFix.None, reason);
         }
         catch (Exception e)
         {
-            return new FixedTextResult(null, e.Message, SafeIsDirty(chapter));
+            var reason = SafeDirtyReason(chapter, disabled);
+            return new FixedTextResult(null, e.Message, reason != null, ChapterFix.None, (e as ChapterFixupException)?.Fix ?? ChapterFix.None, reason);
         }
     }
 
-    public static bool SafeIsDirty(Chapter chapter)
+    public static bool SafeIsDirty(Chapter chapter, ChapterFix disabled = ChapterFix.None) => SafeDirtyReason(chapter, disabled) != null;
+
+    private static string? SafeDirtyReason(Chapter chapter, ChapterFix disabled)
     {
         try
         {
-            return ChapterFixing.IsDirty(chapter);
+            return ChapterFixing.DirtyReason(chapter, disabled);
         }
-        catch
+        catch (Exception e)
         {
             // Treat anything the dirty check can't handle as dirty, so it gets looked at.
-            return true;
+            return $"the dirty check failed: {e.Message}";
         }
     }
 
@@ -57,7 +65,7 @@ public class ChapterPreviewService
             stored = await db.Chapters.SingleAsync(x => x.Id == chapterId, cancellationToken);
 
         var chapter = stored.ToChapter();
-        var fixedResult = GetFixedText(chapter);
+        var fixedResult = GetFixedText(chapter, stored.DisabledFixes);
         if (fixedResult.Text != null)
             chapter.Text = fixedResult.Text;
 

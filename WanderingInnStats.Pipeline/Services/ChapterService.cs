@@ -43,7 +43,8 @@ public record ChapterSummary(
     bool Excluded,
     DateTime? DownloadedAt,
     string? LastError,
-    bool PatreonLocked);
+    bool PatreonLocked,
+    ChapterFix DisabledFixes = ChapterFix.None);
 
 public record DownloadProgress(int Done, int Total, string Current, int Failed);
 
@@ -200,7 +201,7 @@ public class ChapterService
             .Select(x => new ChapterSummary(
                 x.Id, x.Url, x.Volume, x.Name, x.TocOrder, x.InToc, x.Date, x.Comments,
                 x.RawText != null, x.RawText == null ? 0 : x.RawText.Length,
-                x.OverrideText != null, x.OverrideStale, x.Excluded, x.DownloadedAt, x.LastError, x.PatreonLocked))
+                x.OverrideText != null, x.OverrideStale, x.Excluded, x.DownloadedAt, x.LastError, x.PatreonLocked, x.DisabledFixes))
             .ToListAsync(cancellationToken);
     }
 
@@ -234,7 +235,7 @@ public class ChapterService
         var dirty = new HashSet<int>();
         await foreach (var row in db.Chapters.AsNoTracking().Where(x => x.RawText != null).AsAsyncEnumerable().WithCancellation(cancellationToken))
         {
-            var fixedResult = ChapterPreviewService.GetFixedText(row.ToChapter());
+            var fixedResult = ChapterPreviewService.GetFixedText(row.ToChapter(), row.DisabledFixes);
             if (fixedResult.IsDirty || fixedResult.Error != null)
                 dirty.Add(row.Id);
         }
@@ -448,6 +449,14 @@ public class ChapterService
         var row = await db.Chapters.SingleAsync(x => x.Id == id);
         row.OverrideText = string.IsNullOrEmpty(overrideText) ? null : overrideText;
         row.OverrideStale = false;
+        await db.SaveChangesAsync();
+    }
+
+    public async Task SetDisabledFixesAsync(int id, ChapterFix disabled)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        var row = await db.Chapters.SingleAsync(x => x.Id == id);
+        row.DisabledFixes = disabled;
         await db.SaveChangesAsync();
     }
 
