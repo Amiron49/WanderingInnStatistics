@@ -14,15 +14,11 @@ namespace WanderingInnStats.Parsing
 			if (wantedLength + start > originalString.Length)
 				wantedLength = originalString.Length - start;
 
+			// Mark this match by position: replacing by value would also mark identical text around it.
+			var matchStart = match.Index - start;
+			var matchEnd = Math.Min(matchStart + match.Length, wantedLength);
 			var substring = originalString.Substring(start, wantedLength);
-			var replace = substring.Replace(match.Value, $"-->{match.Value}<--");
-
-			if (!replace.Contains(match.Value))
-			{
-				throw new Exception();
-			}
-			
-			return replace;
+			return substring[..matchStart] + "-->" + substring[matchStart..matchEnd] + "<--" + substring[matchEnd..];
 		}
 	}
 }

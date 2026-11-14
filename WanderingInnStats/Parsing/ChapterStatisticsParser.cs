@@ -39,9 +39,21 @@ namespace WanderingInnStats.Parsing
                 return (chapter, statistics);
             });
 
-            var result = await Task.WhenAll(chaptersAsAsync);
-
-            return result.ToList();
+            var tasks = chaptersAsAsync.ToList();
+            try
+            {
+                return (await Task.WhenAll(tasks)).ToList();
+            }
+            catch
+            {
+                // Task.WhenAll rethrows only the first failure; report every chapter that failed.
+                var failures = tasks.Where(x => x.IsFaulted).SelectMany(x => x.Exception!.InnerExceptions).ToList();
+                if (failures.Count <= 1)
+                    throw;
+                throw new AggregateException(
+                    $"{failures.Count} chapters failed to parse: {string.Join(", ", failures.OfType<ChapterParseException>().Select(x => $"'{x.ChapterName}'"))}",
+                    failures);
+            }
         }
 
         public Task<IWanderingInnStatistics> Create(Chapter chapter)
@@ -52,7 +64,14 @@ namespace WanderingInnStats.Parsing
 
                 foreach (var parser in _parsers)
                 {
-                    parser.Parse(chapter.Text, stats, _definitions);
+                    try
+                    {
+                        parser.Parse(chapter.Text, stats, _definitions);
+                    }
+                    catch (Exception e) when (e is not OperationCanceledException)
+                    {
+                        throw new ChapterParseException(chapter, parser.GetType().Name, e);
+                    }
                 }
 
                 return (IWanderingInnStatistics)stats;
@@ -92,5 +111,21 @@ namespace WanderingInnStats.Parsing
             block.Complete();
             await block.Completion;
         }
+    }
+
+    /// <summary>A parser failed on one chapter; names the chapter and parser so the cause can be found.</summary>
+    public class ChapterParseException : Exception
+    {
+        public ChapterParseException(Chapter chapter, string parser, Exception inner)
+            : base($"Parsing chapter '{chapter.Name}' ({chapter.Volume.Trim()}) failed in {parser}: {inner.Message}", inner)
+        {
+            ChapterName = chapter.Name;
+            ChapterUrl = chapter.Url;
+            Parser = parser;
+        }
+
+        public string ChapterName { get; }
+        public string ChapterUrl { get; }
+        public string Parser { get; }
     }
 }

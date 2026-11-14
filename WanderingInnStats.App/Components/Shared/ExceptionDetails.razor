@@ -1,4 +1,4 @@
-@using System.Diagnostics
+﻿@using System.Diagnostics
 @using WanderingInnStats.Scrapping
 
 @* Renders an exception chain: type, message, stack trace per level, plus scrape snapshots / console output. *@
@@ -20,7 +20,7 @@
                 }
                 <code class="fw-bold">@ex.GetType().FullName</code>
             </div>
-            <div class="mb-1">@ex.Message</div>
+            <div class="mb-1" style="white-space: pre-wrap">@ex.Message</div>
 
             @if (ex is ScrapeException scrape)
             {

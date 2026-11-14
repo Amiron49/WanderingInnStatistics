@@ -73,7 +73,15 @@ public class StatisticsPipeline
         catch (Exception e)
         {
             logger.LogError(e, "Statistics generation failed");
-            await FinishRun(run, RunStatus.Failed, e.Message);
+            try
+            {
+                await FinishRun(run, RunStatus.Failed, e.Message);
+            }
+            catch (Exception recordError)
+            {
+                // Don't let a failure to record the run hide why the run itself failed.
+                logger.LogError(recordError, "Recording the failed run {id} failed", run.Id);
+            }
             throw;
         }
     }
@@ -212,7 +220,9 @@ public class StatisticsPipeline
         dirty = ChapterFixing.FindDirtyChapters(chapters).Where(x => x.Volume.Trim() != "Volume 8").ToList();
         logger.LogInformation("{count} dirty chapters remaining", dirty.Count);
         if (dirty.Count > 0)
-            throw new InvalidOperationException($"Still have dirty chapters: {string.Join(", ", dirty.Select(x => x.Name))}");
+            throw new InvalidOperationException(
+                $"{dirty.Count} chapter(s) are still dirty after fixing; write an override for each (Chapters → chapter → Override):"
+                + string.Concat(dirty.Select(x => $"{Environment.NewLine}• '{x.Name}' ({x.Volume.Trim()}): {ChapterFixing.DirtyReason(x)}")));
     }
 
     private async Task FinishRun(StatisticsRun run, RunStatus status, string? error)

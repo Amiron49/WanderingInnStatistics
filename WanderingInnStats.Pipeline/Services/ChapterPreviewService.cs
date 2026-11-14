@@ -45,7 +45,7 @@ public class ChapterPreviewService
         }
         catch
         {
-            // FindDirtyChapters slices Text[..20] and throws on very short texts.
+            // Treat anything the dirty check can't handle as dirty, so it gets looked at.
             return true;
         }
     }

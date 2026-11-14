@@ -23,6 +23,7 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\WanderingInnStats.Core\WanderingInnStats.Core.csproj" />
 	  <ProjectReference Include="..\WanderingInnStats\WanderingInnStats.csproj" />
+	  <ProjectReference Include="..\WanderingInnStats.Pipeline\WanderingInnStats.Pipeline.csproj" />
 	</ItemGroup>
 
 </Project>

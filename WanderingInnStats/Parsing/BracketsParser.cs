@@ -131,7 +131,10 @@ namespace WanderingInnStats.Parsing
                 var second = orderByDescending.Skip(1).First();
                 
                 if (first.individualMatch.Length == second.individualMatch.Length && first.individualMatch.Value.Replace(" ", "").Length == second.individualMatch.Value.Replace(" ", "").Length)
-					throw new Exception("Can't decide");
+					throw new InvalidOperationException(
+						$"Can't decide between overlapping character mentions '{first.Key.Name}' (\"{first.individualMatch.Value}\" at {first.individualMatch.Index:N0}) " +
+						$"and '{second.Key.Name}' (\"{second.individualMatch.Value}\" at {second.individualMatch.Index:N0}): both match the same length. " +
+						"Exclude one of the characters on the Wiki page, or give one a distinguishing alias.");
 				
 				var mostSignificant = first;
 
@@ -163,7 +166,8 @@ namespace WanderingInnStats.Parsing
 
 			if (collisions.Any())
 			{
-				throw new Exception("Got char collisions in a chapter");
+				throw new InvalidOperationException("Got character mention collisions in a chapter: " +
+				                                    string.Join("; ", collisions.Where(x => x.Count > 1).Select(x => string.Join(" ~ ", x.Select(y => $"{y.Key.Name} (\"{y.individualMatch.Value}\")")))));
 			}
 		}
 	}

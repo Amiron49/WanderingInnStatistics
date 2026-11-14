@@ -41,65 +41,61 @@ namespace WanderingInnStats.Pipeline
             return copy.Text;
         }
 
-        public static bool IsDirty(Chapter chapter) => FindDirtyChapters(new List<Chapter> { chapter }).Count > 0;
+        public static bool IsDirty(Chapter chapter) => DirtyReason(chapter) != null;
 
-        public static List<Chapter> FindDirtyChapters(List<Chapter> chapters)
+        public static List<Chapter> FindDirtyChapters(List<Chapter> chapters) => chapters.Where(IsDirty).ToList();
+
+        /// <summary>Why <paramref name="chapter"/> still looks dirty, or null when it's clean.</summary>
+        public static string? DirtyReason(Chapter chapter)
         {
             // ReSharper disable IdentifierTypo
             // ReSharper disable StringLiteralTypo
 
-            var suspiciousSentences = SuspiciousSentences;
-
-            return chapters.Where(target =>
+            var suspicious = SuspiciousSentences.FirstOrDefault(suss => chapter.Text.Contains(suss, StringComparison.OrdinalIgnoreCase));
+            if (suspicious != null)
             {
-                if (suspiciousSentences.Any(suss => target.Text.Contains(suss, StringComparison.OrdinalIgnoreCase))) return true;
+                var index = chapter.Text.IndexOf(suspicious, StringComparison.OrdinalIgnoreCase);
+                return $"contains '{suspicious}' at {index:N0}: \"{Excerpt(chapter.Text, index, suspicious.Length)}\"";
+            }
 
-                if (
-                    target.Name.Contains("S02 – The Antinium Wars (Pt.1)") ||
-                    target.Name.Contains("S02 – The Antinium Wars (Pt.3)")
-                )
-                {
-                    return false;
-                }
+            if (IsAntiniumWarsException(chapter))
+                return null;
 
-                return target.Text[..20].Contains("(");
-            }).ToList();
+            var start = chapter.Text[..Math.Min(20, chapter.Text.Length)];
+            return start.Contains("(") ? $"starts with a bracketed blurb: \"{Excerpt(chapter.Text, 0, 0)}\"" : null;
 
             // ReSharper restore IdentifierTypo
             // ReSharper restore StringLiteralTypo
         }
+
+        private static bool IsAntiniumWarsException(Chapter chapter) =>
+            chapter.Name.Contains("S02 – The Antinium Wars (Pt.1)") ||
+            chapter.Name.Contains("S02 – The Antinium Wars (Pt.3)");
 
         public static void Fixup(List<Chapter> chapters)
         {
             // ReSharper disable IdentifierTypo
             // ReSharper disable StringLiteralTypo
 
-            var previousChapterNextChapter = "Previous Chapter Next Chapter";
-            foreach (var target in chapters.Where(x => x.Text.Contains(previousChapterNextChapter)))
+            foreach (var marker in new[] { "Previous Chapter Next Chapter", "Previous ChapterNext Chapter" })
             {
-                var lengthBefore = target.Text.Length;
+                foreach (var target in chapters.Where(x => x.Text.Contains(marker)))
+                {
+                    var before = target.Text;
+                    target.Text = target.Text.Replace(marker, "");
 
-                target.Text = target.Text.Replace(previousChapterNextChapter, "");
-
-                var lengthAfter = target.Text.Length;
-
-                var loss = lengthBefore - lengthAfter;
-                if (loss > previousChapterNextChapter.Length)
-                    throw new Exception("lost too much");
-            }
-
-            var previousChapterNextChapter2 = "Previous ChapterNext Chapter";
-            foreach (var target in chapters.Where(x => x.Text.Contains(previousChapterNextChapter2)))
-            {
-                var lengthBefore = target.Text.Length;
-
-                target.Text = target.Text.Replace(previousChapterNextChapter2, "");
-
-                var lengthAfter = target.Text.Length;
-
-                var loss = lengthBefore - lengthAfter;
-                if (loss > previousChapterNextChapter2.Length)
-                    throw new Exception("lost too much");
+                    // Only one navigation line is expected; more means the marker appears inside the story text too.
+                    var loss = before.Length - target.Text.Length;
+                    if (loss > marker.Length)
+                    {
+                        var first = before.IndexOf(marker, StringComparison.Ordinal);
+                        var second = before.IndexOf(marker, first + marker.Length, StringComparison.Ordinal);
+                        throw new ChapterFixupException(target, $"Removing '{marker}'",
+                            $"it occurs {loss / marker.Length} times, but only one navigation line is expected. " +
+                            $"First at {first:N0}: \"{Excerpt(before, first, marker.Length)}\"; " +
+                            $"second at {second:N0}: \"{Excerpt(before, second, marker.Length)}\"");
+                    }
+                }
             }
 
             var afterChapterThoughts = "After Chapter Thoughts";
@@ -117,19 +113,10 @@ namespace WanderingInnStats.Pipeline
             var beginningCommentBlurbRegex = new Regex(@"^\(.+\)");
             foreach (var target in chapters.Where(x => beginningCommentBlurbRegex.IsMatch(x.Text)))
             {
-                if (
-                    target.Name.Contains("S02 – The Antinium Wars (Pt.1)") ||
-                    target.Name.Contains("S02 – The Antinium Wars (Pt.3)")
-                )
-                {
+                if (IsAntiniumWarsException(target))
                     continue;
-                }
 
-                var lengthBefore = target.Text.Length;
-                target.Text = beginningCommentBlurbRegex.Replace(target.Text, "");
-
-                var lengthAfter = target.Text.Length;
-
+                var match = beginningCommentBlurbRegex.Match(target.Text);
 
                 var acceptableLoss = 300;
                 if (target.Name.Contains("5.54 (Non-Canon)"))
@@ -142,15 +129,29 @@ namespace WanderingInnStats.Pipeline
                     acceptableLoss = 315;
                 }
 
+                if (match.Length > acceptableLoss)
+                    throw new ChapterFixupException(target, "Removing the leading (…) author blurb",
+                        $"it would remove {match.Length:N0} chars, only {acceptableLoss:N0} are allowed. " +
+                        $"The match ends with \"{Excerpt(target.Text, match.Length, 0)}\". " +
+                        "Shorten the blurb with an override, or raise the chapter's allowance in ChapterFixing.Fixup.");
 
-                var loss = lengthBefore - lengthAfter;
-                if (loss > acceptableLoss)
-                    throw new Exception("lost too much");
+                target.Text = beginningCommentBlurbRegex.Replace(target.Text, "");
             }
 
 
             // ReSharper restore IdentifierTypo
             // ReSharper restore StringLiteralTypo
+        }
+
+        /// <summary>The text around [<paramref name="index"/>, +<paramref name="length"/>), on one line, for error messages.</summary>
+        private static string Excerpt(string text, int index, int length, int radius = 60)
+        {
+            if (index < 0)
+                return "";
+            var start = Math.Max(0, index - radius);
+            var end = Math.Min(text.Length, index + length + radius);
+            var excerpt = (start > 0 ? "…" : "") + text[start..end] + (end < text.Length ? "…" : "");
+            return Regex.Replace(excerpt, @"\s+", " ");
         }
 
         private static void ManualFixesBecauseICantBeBotheredToAutomateThis(Chapter chapter)
@@ -171,5 +172,19 @@ namespace WanderingInnStats.Pipeline
                 _ => chapter.Text
             };
         }
+    }
+
+    /// <summary>A <see cref="ChapterFixing.Fixup"/> safety check refused to change a chapter.</summary>
+    public class ChapterFixupException : Exception
+    {
+        public ChapterFixupException(Chapter chapter, string step, string reason)
+            : base($"Fixing chapter '{chapter.Name}' ({chapter.Volume.Trim()}) failed. {step} was refused: {reason}")
+        {
+            ChapterName = chapter.Name;
+            ChapterUrl = chapter.Url;
+        }
+
+        public string ChapterName { get; }
+        public string ChapterUrl { get; }
     }
 }

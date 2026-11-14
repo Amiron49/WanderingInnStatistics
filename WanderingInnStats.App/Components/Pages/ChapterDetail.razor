@@ -1,4 +1,4 @@
-@page "/chapters/{Id:int}"
+﻿@page "/chapters/{Id:int}"
 @using System.Net
 @using System.Text.RegularExpressions
 @using WanderingInnStats.Parsing
@@ -89,7 +89,7 @@
         </p>
         @if (_fixed?.Error != null)
         {
-            <div class="alert alert-danger">Fixup threw: @_fixed.Error</div>
+            <div class="alert alert-danger" style="white-space: pre-wrap">Fixup threw: @_fixed.Error</div>
         }
         else if (_fixed?.Text != null)
         {
@@ -125,6 +125,13 @@
         {
             <div class="alert alert-danger">@_previewError</div>
         }
+        else if (_previewException != null)
+        {
+            <div class="alert alert-danger">
+                <div class="fw-bold mb-2">Parsing this chapter failed</div>
+                <ExceptionDetails Exception="_previewException" Context="@($"Stats preview of '{_chapter.Name}' ({_chapter.Url})")" />
+            </div>
+        }
         else if (_preview != null)
         {
             @if (_preview.Approximate)
@@ -136,7 +143,7 @@
             }
             @if (_preview.FixupError != null)
             {
-                <div class="alert alert-warning small">Fixup failed (@_preview.FixupError). Parsed the unfixed text.</div>
+                <div class="alert alert-warning small" style="white-space: pre-wrap">Fixup failed, so the unfixed text was parsed: @_preview.FixupError</div>
             }
             <p>Words: <strong>@_preview.Statistics.Words.ToString("N0")</strong> · Characters: <strong>@_preview.Statistics.Characters.ToString("N0")</strong></p>
             <div class="row g-3">
@@ -166,6 +173,7 @@
     private string? _saved;
     private ChapterPreview? _preview;
     private string? _previewError;
+    private Exception? _previewException;
     private bool _previewing;
     private bool _wasRunning;
 
@@ -213,6 +221,7 @@
 
         _previewing = true;
         _previewError = null;
+        _previewException = null;
         StateHasChanged();
         try
         {
@@ -220,7 +229,7 @@
         }
         catch (Exception e)
         {
-            _previewError = e.Message;
+            _previewException = e;
         }
         finally
         {

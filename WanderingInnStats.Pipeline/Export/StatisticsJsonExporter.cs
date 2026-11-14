@@ -1,4 +1,4 @@
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using WanderingInnStats.Parsing;
@@ -40,13 +40,13 @@ namespace WanderingInnStats.Pipeline.Export
     {
         public override Dictionary<T, int> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException($"{GetType().Name} only writes statistics JSON; reading it back isn't supported.");
         }
 
         public override void Write(Utf8JsonWriter writer, Dictionary<T, int> value, JsonSerializerOptions options)
         {
             if (!typeof(IJsonMe).IsAssignableFrom(value.GetType().GenericTypeArguments[0]))
-                throw new Exception("lmao");
+                throw new InvalidOperationException($"Can't export {value.GetType()}: its key type doesn't implement {nameof(IJsonMe)}.");
 
             var keys = value.Select(x => (x.Key.JsonEquivalent, x));
             var duplicates = keys.GroupBy(x => x.JsonEquivalent).Where(x => x.Count() > 1).ToList();
@@ -64,7 +64,7 @@ namespace WanderingInnStats.Pipeline.Export
     {
         public override TWanderingInnStatistics? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException($"{GetType().Name} only writes statistics JSON; reading it back isn't supported.");
         }
 
         public override void Write(Utf8JsonWriter writer, TWanderingInnStatistics value, JsonSerializerOptions options)
